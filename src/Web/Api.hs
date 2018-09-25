@@ -1,7 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Web.Api where
 
 import Data.Text
-import Network.HTTP
+import GHC.Generics
+import Network.HTTP.Client
 import Network.HTTP.Types
 
 

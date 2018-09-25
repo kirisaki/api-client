@@ -18,6 +18,7 @@ description:         Please see the README on GitHub at <https://github.com/kiri
 dependencies:
 - base >= 4.7 && < 5
 - http-client
+- http-types
 - text
 
 library:
@@ -25,11 +26,18 @@ library:
 
 tests:
   web-api-test:
-    main:                Spec.hs
+    main:                Driver.hs
     source-dirs:         test
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - base
+    - tasty
+    - tasty-discover
+    - tasty-hunit
+    - tasty-hspec
+    - tasty-quickcheck
+    - tasty-smallcheck
     - web-api
