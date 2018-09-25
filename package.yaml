@@ -1,0 +1,33 @@
+name:                web-api
+version:             0.0.1
+github:              "kirisaki/web-api"
+license:             BSD3
+author:              "Akihito KIRISAKI"
+maintainer:          "kirisaki@klaraworks.net"
+copyright:           "2018 Akihito KIRISAKI"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+synopsis:            Utilities for RESTful APIs
+category:            Web
+
+description:         Please see the README on GitHub at <https://github.com/kirisaki/web-api#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+tests:
+  web-api-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - web-api
