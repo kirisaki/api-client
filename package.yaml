@@ -1,6 +1,6 @@
 name:                web-api
 version:             0.0.1
-github:              "kirisaki/web-api"
+github:              "kirisaki/api-client"
 license:             BSD3
 author:              "Akihito KIRISAKI"
 maintainer:          "kirisaki@klaraworks.net"
@@ -11,9 +11,9 @@ extra-source-files:
 - ChangeLog.md
 
 synopsis:            Utilities for RESTful APIs
-category:            Web
+category:            Web, Network
 
-description:         Please see the README on GitHub at <https://github.com/kirisaki/web-api#readme>
+description:         Please see the README on GitHub at <https://github.com/kirisaki/api-client#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -26,7 +26,7 @@ library:
 
 tests:
   web-api-test:
-    main:                Driver.hs
+    main:                Spec.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -34,10 +34,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - base
-    - tasty
-    - tasty-discover
-    - tasty-hunit
-    - tasty-hspec
-    - tasty-quickcheck
-    - tasty-smallcheck
+    - hspec
     - web-api
