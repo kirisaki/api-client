@@ -1,4 +1,4 @@
-name:                web-api
+name:                api-client
 version:             0.0.1
 github:              "kirisaki/api-client"
 license:             BSD3
@@ -17,6 +17,8 @@ description:         Please see the README on GitHub at <https://github.com/kiri
 
 dependencies:
 - base >= 4.7 && < 5
+- aeson
+- bytestring
 - http-client
 - http-types
 - text
@@ -25,7 +27,7 @@ library:
   source-dirs: src
 
 tests:
-  web-api-test:
+  api-client-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -35,4 +37,4 @@ tests:
     dependencies:
     - base
     - hspec
-    - web-api
+    - api-client

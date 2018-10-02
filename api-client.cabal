@@ -1,0 +1,63 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: b7f6b0e72c27cc93b4a6dae49b78b11134316ac9526ede60f11de60ad57f26f3
+
+name:           api-client
+version:        0.0.1
+synopsis:       Utilities for RESTful APIs
+description:    Please see the README on GitHub at <https://github.com/kirisaki/api-client#readme>
+category:       Web, Network
+homepage:       https://github.com/kirisaki/api-client#readme
+bug-reports:    https://github.com/kirisaki/api-client/issues
+author:         Akihito KIRISAKI
+maintainer:     kirisaki@klaraworks.net
+copyright:      2018 Akihito KIRISAKI
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/kirisaki/api-client
+
+library
+  exposed-modules:
+      Network.Api
+  other-modules:
+      Paths_api_client
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , http-client
+    , http-types
+    , text
+  default-language: Haskell2010
+
+test-suite api-client-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Network.ApiSpec
+      Paths_api_client
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , api-client
+    , base
+    , bytestring
+    , hspec
+    , http-client
+    , http-types
+    , text
+  default-language: Haskell2010
