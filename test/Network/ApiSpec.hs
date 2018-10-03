@@ -18,7 +18,7 @@ spec = do
     it "extra parameters" $ do
       injectUrlParams "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
     it "lack parameters" $ do
-      injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters or invalid syntax"
+      injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
 
   describe "lookupMethod" $ do
     let service
