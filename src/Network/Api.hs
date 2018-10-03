@@ -11,9 +11,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Api where
 
+import Control.Applicative
 import Data.Aeson
+import Data.Attoparsec.Text as A
 import Data.ByteString as BS
 import Data.List as L
+import Data.Maybe
 import Data.Text as T
 import GHC.Generics
 import qualified Network.HTTP.Client as C
@@ -24,20 +27,28 @@ call req service = undefined
 buildRequest :: Request -> Method -> Service -> C.Request
 buildRequest req method service = undefined
 
-lookupMethod :: Request -> Service -> Maybe Method
-lookupMethod req service = undefined
 
+lookupMethod :: Request -> Service -> Maybe Method
+lookupMethod req service =
+  undefined
 
 injectUrlParams :: Text -> [(Text, Text)] -> Either Text Text
-injectUrlParams path params =
-  let
-    replace (k, v) p =
-      if p == ':' `T.cons` k ||
-         p == '{' `T.cons` k `T.snoc` '}'
-      then v else p
-    replaceAll kv ps = L.map (replace kv) ps 
-  in
-    undefined
+injectUrlParams path [] = undefined
+  
+bracedParam :: Parser Segment
+bracedParam = Param <$> (char '{' *> A.takeTill (== '}') <* char '}')
+
+colonParam :: Parser Segment
+colonParam = Param <$> (char ':' *> A.takeTill (== '/'))
+
+rawPath :: Parser Segment
+rawPath = Raw <$> (takeTill (== '/'))
+
+data Segment = Param Text | Raw Text
+
+segment :: Parser Segment
+segment = colonParam <|> bracedParam <|> rawPath
+
 
 data Method = Method
   { httpMethod :: HttpMethod

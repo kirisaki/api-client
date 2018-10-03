@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b7f6b0e72c27cc93b4a6dae49b78b11134316ac9526ede60f11de60ad57f26f3
+-- hash: 56f12db24de810101dcd1086df13ebb59e9b3f1230c6ab972ff65138b6153a9a
 
 name:           api-client
 version:        0.0.1
@@ -35,6 +35,7 @@ library
       src
   build-depends:
       aeson
+    , attoparsec
     , base >=4.7 && <5
     , bytestring
     , http-client
@@ -54,6 +55,7 @@ test-suite api-client-test
   build-depends:
       aeson
     , api-client
+    , attoparsec
     , base
     , bytestring
     , hspec

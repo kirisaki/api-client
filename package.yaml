@@ -18,6 +18,7 @@ description:         Please see the README on GitHub at <https://github.com/kiri
 dependencies:
 - base >= 4.7 && < 5
 - aeson
+- attoparsec
 - bytestring
 - http-client
 - http-types
