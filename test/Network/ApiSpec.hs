@@ -13,6 +13,8 @@ spec = do
       injectUrlParams "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
     it "path with braced parameters" $ do
       injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    it "path without head slash" $ do
+      injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
     it "mixed parameters" $ do
         injectUrlParams "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
     it "extra parameters" $ do
@@ -35,55 +37,43 @@ spec = do
             Nothing
     it "colon path" $ do
       lookupMethod ( Request
-                     GET
-                     "user/:id"
+                     GET "user/:id"
                      [("id", "1234")]
-                     []
-                     []
-                     ""
+                     [] [] ""
                    ) service `shouldBe` Just (Method GET "user/:id") 
     it "brace path" $ do
       lookupMethod ( Request
-                     POST
-                     "user/{id}/comment/{article}"
+                     POST "user/{id}/comment/{article}"
                      [("id", "1234"), ("article", "331")]
-                     []
-                     []
-                     ""
+                     [] [] ""
+                   ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    it "head slash different" $ do
+      lookupMethod ( Request
+                     POST "/user/{id}/comment/{article}"
+                     [("id", "1234"), ("article", "331")]
+                     [] [] ""
                    ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
     it "parameter in path" $ do
       lookupMethod ( Request
-                     GET
-                     "user/1234"
+                     GET "user/1234"
                      []
-                     []
-                     []
-                     ""
+                     [] [] ""
                    ) service `shouldBe` Just (Method GET "user/:id") 
     it "mixed path" $ do
       lookupMethod ( Request
-                     POST
-                     "user/{id}/comment/:article"
+                     POST "user/{id}/comment/:article"
                      [("id", "1234"), ("article", "331")]
-                     []
-                     []
-                     ""
+                     [] [] ""
                    ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
     it "not exist" $ do
       lookupMethod ( Request
-                     GET
-                     "nyaan/:aaa"
+                     GET "nyaan/:aaa"
                      []
-                     []
-                     []
-                     ""
+                     [] [] ""
                    ) service `shouldBe` Nothing
     it "invalid method" $ do
       lookupMethod ( Request
-                     GET
-                     "user/{id}/comment/{article}"
+                     GET "user/{id}/comment/{article}"
                      [("id", "1234"), ("article", "331")]
-                     []
-                     []
-                     ""
+                     [] []  ""
                    ) service `shouldBe` Nothing

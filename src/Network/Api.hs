@@ -21,7 +21,6 @@ import Data.Text as T
 import GHC.Generics
 import qualified Network.HTTP.Client as C
 
-import Debug.Trace
 
 call :: Request -> Service -> IO ByteString
 call req service = undefined
@@ -31,8 +30,28 @@ buildRequest req method service = undefined
 
 
 lookupMethod :: Request -> Service -> Maybe Method
-lookupMethod req service =
-  undefined
+lookupMethod req =
+  let
+    parseSegment i = feed (parse segment i) ""
+    matchPath (Done "" (Raw "")) (Done "" (Raw "")) = True
+    matchPath (Done reqRem reqSeg) (Done serRem serSeg) =
+      case (reqSeg, serSeg) of
+        (Param r, Param s) ->
+          if r == s
+          then matchPath (parseSegment reqRem) (parseSegment serRem)
+          else False
+        (Raw _, Param _) ->
+          matchPath (parseSegment reqRem) (parseSegment serRem)
+        (Raw r, Raw s) ->
+          if r == s
+          then matchPath (parseSegment reqRem) (parseSegment serRem)
+          else False
+        (Param _, Raw _) ->
+           False
+    matchParh _ _ =  trace "parese failed" False
+  in
+    L.find (\m -> requestMethod req == httpMethod m
+             && matchPath (Done (requestPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
 
 injectUrlParams :: Text -> [(Text, Text)] -> Either Text Text
 injectUrlParams path params =
@@ -58,7 +77,7 @@ injectUrlParams path params =
   in
     inject (Right "", path)
     
-  
+
 bracedParam :: Parser Segment
 bracedParam = Param <$> (char '{' *> A.takeTill (== '}') <* char '}')
 
@@ -68,10 +87,10 @@ colonParam = Param <$> (char ':' *> A.takeTill (== '/'))
 rawPath :: Parser Segment
 rawPath = Raw <$> (takeTill (== '/') <|> takeText)
 
-data Segment = Param Text | Raw Text deriving(Show)
+data Segment = Param Text | Raw Text deriving(Eq, Show)
 
 segment :: Parser Segment
-segment =  (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
+segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
 
 
 data Method = Method
