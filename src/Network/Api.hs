@@ -7,19 +7,19 @@
 -- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
 --
 -----------------------------------------------------------------------------
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Api where
 
-import Control.Applicative
-import Data.Aeson
-import Data.Attoparsec.Text as A
-import Data.ByteString as BS
-import Data.List as L
-import Data.Maybe
-import Data.Text as T
-import GHC.Generics
-import qualified Network.HTTP.Client as C
+import           Control.Applicative
+import           Data.Aeson
+import           Data.Attoparsec.Text as A
+import           Data.ByteString      as BS
+import           Data.List            as L
+import           Data.Maybe
+import           Data.Text            as T
+import           GHC.Generics
+import qualified Network.HTTP.Client  as C
 
 
 call :: Request -> Service -> IO ByteString
@@ -37,15 +37,11 @@ lookupMethod req =
     matchPath (Done reqRem reqSeg) (Done serRem serSeg) =
       case (reqSeg, serSeg) of
         (Param r, Param s) ->
-          if r == s
-          then matchPath (parseSegment reqRem) (parseSegment serRem)
-          else False
+          r == s &&  matchPath (parseSegment reqRem) (parseSegment serRem)
         (Raw _, Param _) ->
           matchPath (parseSegment reqRem) (parseSegment serRem)
         (Raw r, Raw s) ->
-          if r == s
-          then matchPath (parseSegment reqRem) (parseSegment serRem)
-          else False
+          r == s && matchPath (parseSegment reqRem) (parseSegment serRem)
         (Param _, Raw _) ->
            False
     matchParh _ _ =  trace "parese failed" False
@@ -76,7 +72,7 @@ injectUrlParams path params =
           Left "failed parsing"
   in
     inject (Right "", path)
-    
+
 
 bracedParam :: Parser Segment
 bracedParam = Param <$> (char '{' *> A.takeTill (== '}') <* char '}')
@@ -94,21 +90,21 @@ segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* opt
 
 
 data Method = Method
-  { httpMethod :: HttpMethod
+  { httpMethod  :: HttpMethod
   , apiEndpoint :: Text
   } deriving (Eq, Show, Ord, Read, Generic)
 instance FromJSON Method
 instance ToJSON Method
 
 data Service = Service
-  { baseUrl :: Text
-  , tokenUrl :: Maybe Text
-  , tokenGetter :: Maybe Method
-  , tokenRefresher :: Maybe Method
-  , methods :: [Method]
-  , defaultHeader :: [(Text, Text)]
+  { baseUrl         :: Text
+  , tokenUrl        :: Maybe Text
+  , tokenGetter     :: Maybe Method
+  , tokenRefresher  :: Maybe Method
+  , methods         :: [Method]
+  , defaultHeader   :: [(Text, Text)]
   , tokenHeaderName :: Maybe Text
-  , tokenQueryName :: Maybe Text
+  , tokenQueryName  :: Maybe Text
   } deriving (Eq, Show, Ord, Read, Generic)
 instance FromJSON Service
 instance ToJSON Service
@@ -130,9 +126,9 @@ instance ToJSON HttpMethod
 
 data Request = Request
   { requestMethod :: HttpMethod
-  , requestPath :: Text
-  , pathParams :: [(Text, Text)]
-  , queryParams :: [(Text, Text)]
-  , headerParams :: [(Text, Text)]
-  , requestBody :: ByteString
+  , requestPath   :: Text
+  , pathParams    :: [(Text, Text)]
+  , queryParams   :: [(Text, Text)]
+  , headerParams  :: [(Text, Text)]
+  , requestBody   :: ByteString
   } deriving (Eq, Show, Ord, Read, Generic)
