@@ -7,9 +7,12 @@ module Network.ApiSpec where
 
 import Test.Hspec
 
+import Control.Concurrent (forkIO, killThread)
+import Control.Exception.Safe
 import Data.Aeson
 import Data.Proxy
 import Network.Api
+import qualified Network.HTTP.Client     as C
 import Network.Wai.Handler.Warp (run)
 import Servant hiding(GET, POST)
 import Servant.Server (serve)
@@ -26,11 +29,16 @@ server = getUser :<|> postComment :<|> getToken :<|> hoge :<|> emptyServer
   where
     getUser uid = return $ object ["id" .= show uid, "name" .= String "nyaan"]
     postComment _ _ _ = return ()
-    getToken _ = return $ object ["token" .= String "opensesami", "expire" .= String "3600"]
+    getToken _ = return $ object ["token" .= String "opensesami", "expire_in" .= String "3600"]
     hoge = return $ object ["foo" .= String "bar"]
 
 mockServer :: IO ()
 mockServer = run 8080 (serve (Proxy @ Api) server)
+
+runMockServer :: IO () -> IO ()
+runMockServer action = do
+  tid <- forkIO mockServer
+  action `finally` killThread tid
 
 
 sampleService :: Service
@@ -41,12 +49,29 @@ sampleService = Service
                 , Method POST "token"
                 ]
                 [("User-Agent", "nyaan")]
-                Nothing
-                Nothing
+                (Just "Authorization")
+                (Just "Bearer")
                 Nothing
 
+instance Eq C.Request where
+  x == y = and 
+           [ eq C.host
+           , eq C.port
+           , eq C.secure
+           , eq C.requestHeaders
+           , eq C.path
+           , eq C.queryString
+           , eq C.method
+           , eq C.proxy
+           , eq C.redirectCount
+           , eq C.responseTimeout
+           , eq C.requestVersion
+           ]
+    where
+      eq f = f x == f y
+
 spec :: Spec
-spec = do
+spec = around_ runMockServer $ do
   describe "injectUrl" $ do
     it "path with colon parameters 1" $
       injectUrlParams "/user/:id" [("id", "1234")] `shouldBe` Right "/user/1234"
@@ -54,8 +79,14 @@ spec = do
       injectUrlParams "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
     it "path with braced parameters" $
       injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    it "parameter between raw paths" $
+      injectUrlParams "/user/{id}/comment" [("id", "42")] `shouldBe` Right "/user/42/comment"
+    it "parameter between raw paths with trailing slash" $
+      injectUrlParams "/user/{id}/comment/" [("id", "42")] `shouldBe` Right "/user/42/comment"
     it "path without head slash" $
-      injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+      injectUrlParams "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    it "parameter in the head without slash" $
+      injectUrlParams "{id}/" [("id", "42")] `shouldBe` Right "/42"
     it "mixed parameters" $
         injectUrlParams "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
     it "extra parameters" $
@@ -107,5 +138,14 @@ spec = do
                      [] []  "" Nothing Nothing
                    ) sampleService `shouldBe` Nothing
 
---    describe "buildRequest"
+  describe "buildHttpRequest" $ do
+    it "normal case" $ do
+      expected <- C.parseUrlThrow "https://example.net/user/1234"
+      actual <- buildHttpRequest ( Request
+                                   GET "user/:id"
+                                   [("id", "1234")]
+                                   [] [] ""
+                                   (Just $ Token "fuga" Indefinitely) Nothing
+                                 ) sampleService
+      actual `shouldBe` expected
 

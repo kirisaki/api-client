@@ -14,8 +14,7 @@ module Network.Api
   (
     -- * Function
     call
-  , addToken
-  , buildRequest
+  , buildHttpRequest
   , lookupMethod
   , injectUrlParams
   -- * Data
@@ -24,6 +23,7 @@ module Network.Api
   , Service(..)
   , Request(..)
   , Token(..)
+  , Expiration(..)
   -- * Exception
   , ClientException(..)
   ) where
@@ -46,15 +46,18 @@ import qualified Network.HTTP.Client     as C
 call :: Request -> Service -> IO ByteString
 call req service = undefined
 
-addToken = undefined
 
-buildRequest :: Request -> Service -> Either SomeException C.Request
-buildRequest req service = do
+buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
+buildHttpRequest req service = do
   method <- case lookupMethod req service of
-         Nothing -> throw MethodNotDefined
          Just m  -> return m
-  --path <- case injectUrlParam ()
-  C.parseUrlThrow "aaa"
+         Nothing -> throw MethodNotDefined
+  path <- case injectUrlParams (apiEndpoint method) (pathParams req) of
+            Right r -> return r
+            Left l -> throw $ FailedToInjectUrlParams l
+  let url = (fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service))) `T.append` path
+  C.parseUrlThrow $ T.unpack url
+
 
 lookupMethod :: Request -> Service -> Maybe Method
 lookupMethod req =
@@ -162,8 +165,13 @@ data Request = Request
 
 data Token = Token
   { tokenText :: Text
-  , expire    :: UTCTime
+  , expire    :: Expiration
   } deriving (Eq, Show)
+
+data Expiration
+  = ExpiresAt UTCTime
+  | Indefinitely
+  deriving (Eq, Show)
 
 data ClientException
   = MethodNotDefined
