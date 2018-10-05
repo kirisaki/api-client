@@ -42,6 +42,7 @@ tests:
     - base
     - hspec
     - api-client
+    - case-insensitive
     - servant
     - servant-server
     - warp

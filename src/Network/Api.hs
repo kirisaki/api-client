@@ -46,7 +46,6 @@ import qualified Network.HTTP.Client     as C
 call :: Request -> Service -> IO ByteString
 call req service = undefined
 
-
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
   method <- case lookupMethod req service of
