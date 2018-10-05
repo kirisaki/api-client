@@ -20,9 +20,12 @@ dependencies:
 - aeson
 - attoparsec
 - bytestring
+- either
 - http-client
 - http-types
+- safe-exceptions
 - text
+- time
 
 library:
   source-dirs: src

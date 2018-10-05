@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 56f12db24de810101dcd1086df13ebb59e9b3f1230c6ab972ff65138b6153a9a
+-- hash: 501ebda8a8895d5734a9eff6b4e622661b50ed811b52a861c50a148df6499072
 
 name:           api-client
 version:        0.0.1
@@ -38,9 +38,12 @@ library
     , attoparsec
     , base >=4.7 && <5
     , bytestring
+    , either
     , http-client
     , http-types
+    , safe-exceptions
     , text
+    , time
   default-language: Haskell2010
 
 test-suite api-client-test
@@ -58,8 +61,11 @@ test-suite api-client-test
     , attoparsec
     , base
     , bytestring
+    , either
     , hspec
     , http-client
     , http-types
+    , safe-exceptions
     , text
+    , time
   default-language: Haskell2010

@@ -4,76 +4,78 @@ module Network.ApiSpec where
 import Test.Hspec
 import Network.Api
 
+sampleService :: Service
+sampleService = Service
+                "https://example.net"
+                [ Method GET "user/:id"
+                , Method POST "user/{id}/comment/{article}"
+                ]
+                [("User-Agent", "nyaan")]
+                Nothing
+                Nothing
+                Nothing
+                
 spec :: Spec
 spec = do
   describe "injectUrl" $ do
-    it "path with colon parameters 1" $ do
+    it "path with colon parameters 1"
       injectUrlParams "/user/:id" [("id", "1234")] `shouldBe` Right "/user/1234"
-    it "path with colon parameters 2" $ do
+    it "path with colon parameters 2"
       injectUrlParams "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
-    it "path with braced parameters" $ do
+    it "path with braced parameters"
       injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
-    it "path without head slash" $ do
+    it "path without head slash"
       injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
-    it "mixed parameters" $ do
+    it "mixed parameters"
         injectUrlParams "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
-    it "extra parameters" $ do
+    it "extra parameters"
       injectUrlParams "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
-    it "lack parameters" $ do
+    it "lack parameters"
       injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
 
-  describe "lookupMethod" $ do
-    let service
-          = Service
-            "https://example.net"
-            Nothing
-            Nothing
-            Nothing
-            [ Method GET "user/:id"
-            , Method POST "user/{id}/comment/{article}"
-            ]
-            []
-            Nothing
-            Nothing
-    it "colon path" $ do
+  describe "lookupMethod" $do
+    it "colon path"
       lookupMethod ( Request
                      GET "user/:id"
                      [("id", "1234")]
-                     [] [] ""
-                   ) service `shouldBe` Just (Method GET "user/:id") 
-    it "brace path" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Just (Method GET "user/:id") 
+    it "braced path"
       lookupMethod ( Request
                      POST "user/{id}/comment/{article}"
                      [("id", "1234"), ("article", "331")]
-                     [] [] ""
-                   ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
-    it "head slash different" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    it "head slash different"
       lookupMethod ( Request
                      POST "/user/{id}/comment/{article}"
                      [("id", "1234"), ("article", "331")]
-                     [] [] ""
-                   ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
-    it "parameter in path" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    it "parameter in path"
       lookupMethod ( Request
                      GET "user/1234"
                      []
-                     [] [] ""
-                   ) service `shouldBe` Just (Method GET "user/:id") 
-    it "mixed path" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Just (Method GET "user/:id") 
+    it "mixed path"
       lookupMethod ( Request
                      POST "user/{id}/comment/:article"
                      [("id", "1234"), ("article", "331")]
-                     [] [] ""
-                   ) service `shouldBe` Just (Method POST "user/{id}/comment/{article}")
-    it "not exist" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    it "not exist"
       lookupMethod ( Request
                      GET "nyaan/:aaa"
                      []
-                     [] [] ""
-                   ) service `shouldBe` Nothing
-    it "invalid method" $ do
+                     [] [] "" Nothing Nothing
+                   ) sampleService `shouldBe` Nothing
+    it "invalid method"
       lookupMethod ( Request
                      GET "user/{id}/comment/{article}"
                      [("id", "1234"), ("article", "331")]
-                     [] []  ""
-                   ) service `shouldBe` Nothing
+                     [] []  "" Nothing Nothing
+                   ) sampleService `shouldBe` Nothing
+
+--    describe "buildRequest"
+

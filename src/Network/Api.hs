@@ -7,27 +7,54 @@
 -- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
 --
 -----------------------------------------------------------------------------
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-module Network.Api where
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE OverloadedStrings  #-}
+module Network.Api
+  (
+    -- * Function
+    call
+  , addToken
+  , buildRequest
+  , lookupMethod
+  , injectUrlParams
+  -- * Data
+  , Method(..)
+  , HttpMethod(..)
+  , Service(..)
+  , Request(..)
+  , Token(..)
+  -- * Exception
+  , ClientException(..)
+  ) where
 
 import           Control.Applicative
+import           Control.Exception.Safe  as E
 import           Data.Aeson
-import           Data.Attoparsec.Text as A
-import           Data.ByteString      as BS
-import           Data.List            as L
+import           Data.Attoparsec.Text    as A
+import           Data.ByteString         as BS
+import           Data.Either.Combinators
+import           Data.List               as L
 import           Data.Maybe
-import           Data.Text            as T
+import           Data.Text               as T
+import           Data.Time.Clock
+import           Data.Typeable
 import           GHC.Generics
-import qualified Network.HTTP.Client  as C
+import qualified Network.HTTP.Client     as C
 
 
 call :: Request -> Service -> IO ByteString
 call req service = undefined
 
-buildRequest :: Request -> Method -> Service -> C.Request
-buildRequest req method service = undefined
+addToken = undefined
 
+buildRequest :: Request -> Service -> Either SomeException C.Request
+buildRequest req service = do
+  method <- case lookupMethod req service of
+         Nothing -> throw MethodNotDefined
+         Just m  -> return m
+  --path <- case injectUrlParam ()
+  C.parseUrlThrow "aaa"
 
 lookupMethod :: Request -> Service -> Maybe Method
 lookupMethod req =
@@ -44,7 +71,7 @@ lookupMethod req =
           r == s && matchPath (parseSegment reqRem) (parseSegment serRem)
         (Param _, Raw _) ->
            False
-    matchParh _ _ =  trace "parese failed" False
+    matchParh _ _ = False
   in
     L.find (\m -> requestMethod req == httpMethod m
              && matchPath (Done (requestPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
@@ -97,14 +124,12 @@ instance FromJSON Method
 instance ToJSON Method
 
 data Service = Service
-  { baseUrl         :: Text
-  , tokenUrl        :: Maybe Text
-  , tokenGetter     :: Maybe Method
-  , tokenRefresher  :: Maybe Method
-  , methods         :: [Method]
-  , defaultHeader   :: [(Text, Text)]
-  , tokenHeaderName :: Maybe Text
-  , tokenQueryName  :: Maybe Text
+  { baseUrl           :: Text
+  , methods           :: [Method]
+  , defaultHeader     :: [(Text, Text)]
+  , tokenHeaderName   :: Maybe Text
+  , tokenHeaderPrefix :: Maybe Text
+  , tokenQueryName    :: Maybe Text
   } deriving (Eq, Show, Ord, Read, Generic)
 instance FromJSON Service
 instance ToJSON Service
@@ -125,10 +150,24 @@ instance FromJSON HttpMethod
 instance ToJSON HttpMethod
 
 data Request = Request
-  { requestMethod :: HttpMethod
-  , requestPath   :: Text
-  , pathParams    :: [(Text, Text)]
-  , queryParams   :: [(Text, Text)]
-  , headerParams  :: [(Text, Text)]
-  , requestBody   :: ByteString
-  } deriving (Eq, Show, Ord, Read, Generic)
+  { requestMethod  :: HttpMethod
+  , requestPath    :: Text
+  , pathParams     :: [(Text, Text)]
+  , queryParams    :: [(Text, Text)]
+  , headerParams   :: [(Text, Text)]
+  , requestBody    :: ByteString
+  , requestToken   :: Maybe Token
+  , requestBaseUrl :: Maybe Text
+  } deriving (Eq, Show)
+
+data Token = Token
+  { tokenText :: Text
+  , expire    :: UTCTime
+  } deriving (Eq, Show)
+
+data ClientException
+  = MethodNotDefined
+  | FailedToInjectUrlParams Text
+  deriving(Show, Typeable)
+instance Exception ClientException
+
