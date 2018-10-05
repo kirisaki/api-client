@@ -1,25 +1,25 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE TypeOperators     #-}
 
 module Network.ApiSpec where
 
-import Test.Hspec
+import           Test.Hspec
 
-import Control.Concurrent (forkIO, killThread)
-import Control.Exception.Safe
-import Data.Aeson
-import Data.CaseInsensitive
-import Data.Proxy
-import Network.Api
-import qualified Network.HTTP.Client     as C
-import Network.Wai.Handler.Warp (run)
-import Servant hiding(GET, POST)
-import Servant.Server (serve)
+import           Control.Concurrent       (forkIO, killThread)
+import           Control.Exception.Safe
+import           Data.Aeson
+import           Data.CaseInsensitive
+import           Data.Proxy
+import           Network.Api
+import qualified Network.HTTP.Client      as C
+import           Network.Wai.Handler.Warp (run)
+import           Servant                  hiding (GET, POST)
+import           Servant.Server           (serve)
 
 type Api =
-  "user" :> Capture "id" Integer :> Get '[JSON] Value :<|> 
+  "user" :> Capture "id" Integer :> Get '[JSON] Value :<|>
   "user" :> Capture "id" Integer :> "comment" :> Capture "article" Integer :> ReqBody '[JSON] Value :> PostNoContent '[JSON] () :<|>
   "token" :> ReqBody '[JSON] Value :> Post '[JSON] Value :<|>
   "hoge" :> Get '[JSON] Value :<|>
@@ -54,7 +54,7 @@ sampleService = Service
                 Nothing
 
 instance Eq C.Request where
-  x == y = and 
+  x == y = and
            [ eq C.host
            , eq C.port
            , eq C.secure
@@ -106,7 +106,7 @@ specLookupMethod = do
                    GET "user/:id"
                    [("id", "1234")]
                    [] [] "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method GET "user/:id") 
+                 ) sampleService `shouldBe` Just (Method GET "user/:id")
   it "braced path" $
     lookupMethod ( Request
                    POST "user/{id}/comment/{article}"
@@ -124,7 +124,7 @@ specLookupMethod = do
                    GET "user/1234"
                    []
                    [] [] "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method GET "user/:id") 
+                 ) sampleService `shouldBe` Just (Method GET "user/:id")
   it "mixed path" $
     lookupMethod ( Request
                    POST "user/{id}/comment/:article"
@@ -148,7 +148,9 @@ specBuildHttpRequest :: Spec
 specBuildHttpRequest = do
   context "cases which succeed" $ do
     it "normal case without token" $ do
-      expected <- C.parseUrlThrow "https://example.net/user/1234"
+      req <- C.parseUrlThrow "https://example.net/user/1234"
+      let expected = req {C.requestHeaders =
+                          [ (mk "User-Agent", "nyaan")]}
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -158,7 +160,10 @@ specBuildHttpRequest = do
       actual `shouldBe` expected
     it "token at header" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
-      let expected = req {C.requestHeaders = [(mk "Authorization", "Bearer fuga")]}
+      let expected = req {C.requestHeaders =
+                          [ (mk "User-Agent", "nyaan")
+                          , (mk "Authorization", "Bearer fuga")
+                          ]}
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -172,7 +177,8 @@ specBuildHttpRequest = do
             { tokenHeaderName = Nothing
             , tokenHeaderPrefix = Nothing
             , tokenQueryName = Just "token"}
-      let expected = C.setQueryString [("token", Just "fuga")] req
+      let expected = C.setQueryString [("token", Just "fuga")] req {C.requestHeaders =
+                          [ (mk "User-Agent", "nyaan")]}
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -205,8 +211,8 @@ specBuildHttpRequest = do
     it "method not defined" $
       let
         isMethodNotDefined MethodNotDefined = True
-        isMethodNotDefined _ = False
-      in do
+        isMethodNotDefined _                = False
+      in
         buildHttpRequest ( Request
                            GET "nyaan"
                            [] [] [] ""
@@ -215,8 +221,8 @@ specBuildHttpRequest = do
     it "failed to injecr url params" $
       let
         isFailedToInjectUrlParams (FailedToInjectUrlParams _) = True
-        isFailedToInjectUrlParams _ = False
-      in do
+        isFailedToInjectUrlParams _                           = False
+      in
         buildHttpRequest ( Request
                            GET "user/:id"
                            [] [] [] ""
