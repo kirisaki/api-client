@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1750a3877e6aebe90938ff754517c2a86ffe9aee68b2a68f4b9f8b6668b4cf60
+-- hash: 8dfd3a649a1a3d3854f28436cda5de8eecb60031638aa34962823a352a92a4dd
 
 name:           api-client
 version:        0.0.1
@@ -38,6 +38,7 @@ library
     , attoparsec
     , base >=4.7 && <5
     , bytestring
+    , case-insensitive
     , either
     , http-client
     , http-types

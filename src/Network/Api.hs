@@ -33,14 +33,17 @@ import           Control.Exception.Safe  as E
 import           Data.Aeson
 import           Data.Attoparsec.Text    as A
 import           Data.ByteString         as BS
+import Data.CaseInsensitive (mk)
 import           Data.Either.Combinators
 import           Data.List               as L
 import           Data.Maybe
 import           Data.Text               as T
+import Data.Text.Encoding
 import           Data.Time.Clock
-import           Data.Typeable
+import           Data.Typeable (Typeable)
 import           GHC.Generics
 import qualified Network.HTTP.Client     as C
+import Network.HTTP.Types.URI
 
 
 call :: Request -> Service -> IO ByteString
@@ -55,8 +58,12 @@ buildHttpRequest req service = do
             Right r -> return r
             Left l -> throw $ FailedToInjectUrlParams l
   let url = (fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service))) `T.append` path
-  C.parseUrlThrow $ T.unpack url
+  let query = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (queryParams req)
+  let headers = L.map (\(k, v) -> (mk $ percentEncode k, percentEncode v)) (headerParams req)
+  C.setQueryString query <$> (C.parseUrlThrow $ T.unpack url)
 
+percentEncode :: Text -> ByteString
+percentEncode = urlEncode False . encodeUtf8
 
 lookupMethod :: Request -> Service -> Maybe Method
 lookupMethod req =
@@ -117,7 +124,6 @@ data Segment = Param Text | Raw Text deriving(Eq, Show)
 segment :: Parser Segment
 segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
 
-
 data Method = Method
   { httpMethod  :: HttpMethod
   , apiEndpoint :: Text
@@ -155,7 +161,7 @@ data Request = Request
   { requestMethod  :: HttpMethod
   , requestPath    :: Text
   , pathParams     :: [(Text, Text)]
-  , queryParams    :: [(Text, Text)]
+  , queryParams    :: [(Text, Maybe Text)]
   , headerParams   :: [(Text, Text)]
   , requestBody    :: ByteString
   , requestToken   :: Maybe Token

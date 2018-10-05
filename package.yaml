@@ -20,6 +20,7 @@ dependencies:
 - aeson
 - attoparsec
 - bytestring
+- case-insensitive
 - either
 - http-client
 - http-types
@@ -42,7 +43,6 @@ tests:
     - base
     - hspec
     - api-client
-    - case-insensitive
     - servant
     - servant-server
     - warp

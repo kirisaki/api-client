@@ -180,12 +180,12 @@ specBuildHttpRequest = do
                                    (Just $ Token "fuga" Indefinitely) Nothing
                                  ) service
       actual `shouldBe` expected
-    it "has additional headers" $ do
-      expected <- C.parseUrlThrow "https://example.net/user/1234?a=aaa&b=bbb"
+    it "has additional queries" $ do
+      expected <- C.parseUrlThrow "https://example.net/user/1234?a=aaa&b"
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [("a", "aaa"), ("b", "bbb")] [] ""
+                                   [("a", Just "aaa"), ("b", Nothing)] [] ""
                                    Nothing Nothing
                                  ) sampleService
       actual `shouldBe` expected
