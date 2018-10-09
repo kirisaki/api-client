@@ -11,6 +11,7 @@ import           Control.Concurrent       (forkIO, killThread)
 import           Control.Exception.Safe
 import           Data.Aeson
 import           Data.CaseInsensitive
+import           Data.Either
 import           Data.Proxy
 import           Network.Api
 import qualified Network.HTTP.Client      as C
@@ -233,7 +234,21 @@ specBuildHttpRequest = do
                          ) sampleService `shouldThrow` isFailedToInjectUrlParams
 
 specFieldName :: Spec
-specFieldName = it "" pending
+specFieldName = do
+  it "normal case1" $
+    fieldName "Accept" `shouldSatisfy` isRight
+  it "normal case2" $
+    fieldName "User-Agent" `shouldSatisfy` isRight
+  it "should be case-insensitive" $
+    fieldName "Content-Length" `shouldBe` fieldName "content-length"
+  it "include invalid character" $
+    fieldName "something,wrong" `shouldSatisfy` isLeft
+  it "invalid characters in the end" $
+    fieldName "ah?" `shouldSatisfy` isLeft
+  it "include unprintable character" $
+    fieldName "ah\taa" `shouldSatisfy` isLeft
+  it "include non-ASCII character" $
+    fieldName "にゃーん" `shouldSatisfy` isLeft
 
 specFieldValue :: Spec
 specFieldValue = it "" pending

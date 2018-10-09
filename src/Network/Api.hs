@@ -24,6 +24,9 @@ module Network.Api
   , Request(..)
   , Token(..)
   , Expiration(..)
+  -- * Header
+  , fieldName
+  , unFieldName
   -- * Exception
   , ClientException(..)
   ) where
@@ -34,7 +37,7 @@ import           Data.Aeson
 import           Data.Attoparsec.Text    as A
 import qualified Data.ByteString         as BSS
 import qualified Data.ByteString.Lazy         as BSL
-import           Data.CaseInsensitive    (mk)
+import           Data.CaseInsensitive    (CI, mk, original)
 import Data.Char
 import           Data.Either.Combinators
 import           Data.List               as L
@@ -133,25 +136,25 @@ segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* opt
 
 -- Headers
 -- | A field name of a HTTP header.
-newtype FieldName = FieldName { unFieldName :: BSS.ByteString } deriving(Show, Eq, Ord)
+newtype FieldName = FieldName { unFieldName :: CI BSS.ByteString } deriving(Show, Eq, Ord)
 instance ToJSON FieldName where
-  toJSON = String . decodeUtf8 . unFieldName
+  toJSON = String . decodeUtf8 . original . unFieldName
 instance FromJSON FieldName where
   parseJSON = withText "FieldName" $
     \t -> case fieldName t of
       Right n -> return n
       Left e -> fail $ T.unpack e
 
--- | Make field name.
+-- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldName :: Text -> Either Text FieldName
 fieldName t =
   let
-    p = A.takeWhile (\c -> isAlpha c || isDigit c || inClass "!#$%&'*+-.^_`|~" c)
+    p = A.takeWhile1 (\c -> isAscii c && isAlphaNum c || elem c ("!#$%&'*+-.^_`|~" :: String))
   in
     case feed (parse p t) "" of
-      Done "" n -> Right . FieldName $ encodeUtf8 n
-      Done _ _ -> Left "included invalid a character character(see RFC7230)"
-      Fail _ _ _ -> Left "included invalid a character character(see RFC7230)"
+      Done "" n -> Right . FieldName . mk $ encodeUtf8 n
+      Done _ _ -> Left "included invalid a character character"
+      Fail _ _ _ -> Left "included invalid a character character"
       Partial _ -> Left "lack input"
 
 
