@@ -47,9 +47,11 @@ import qualified Network.HTTP.Client     as C
 import           Network.HTTP.Types.URI
 
 
+-- | Call WebAPI
 call :: Request -> Service -> IO BSL.ByteString
 call req service = undefined
 
+-- | Build a Network.HTTP.Client.Request from Request
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
   method <- case lookupMethod req service of
@@ -67,6 +69,7 @@ buildHttpRequest req service = do
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
 
+-- | Look up a method which matchs an API definition.
 lookupMethod :: Request -> Service -> Maybe Method
 lookupMethod req =
   let
@@ -87,6 +90,7 @@ lookupMethod req =
     L.find (\m -> requestMethod req == httpMethod m
              && matchPath (Done (requestPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
 
+-- | Inject parameters to a path represented with colon or braces.
 injectUrlParams :: Text -> [(Text, Text)] -> Either Text Text
 injectUrlParams path params =
   let
@@ -111,7 +115,7 @@ injectUrlParams path params =
   in
     inject (Right "", path)
 
-
+-- Parsers
 bracedParam :: Parser Segment
 bracedParam = Param <$> (char '{' *> A.takeTill (== '}') <* char '}')
 
@@ -126,6 +130,7 @@ data Segment = Param Text | Raw Text deriving(Eq, Show)
 segment :: Parser Segment
 segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
 
+-- | API definition
 data Method = Method
   { httpMethod  :: HttpMethod
   , apiEndpoint :: Text
@@ -133,6 +138,7 @@ data Method = Method
 instance FromJSON Method
 instance ToJSON Method
 
+-- | API Definition
 data Service = Service
   { baseUrl           :: Text
   , methods           :: [Method]
@@ -144,6 +150,7 @@ data Service = Service
 instance FromJSON Service
 instance ToJSON Service
 
+-- | HTTP method
 data HttpMethod
   = GET
   | POST
@@ -159,6 +166,7 @@ data HttpMethod
 instance FromJSON HttpMethod
 instance ToJSON HttpMethod
 
+-- | API request
 data Request = Request
   { requestMethod  :: HttpMethod
   , requestPath    :: Text
@@ -170,16 +178,19 @@ data Request = Request
   , requestBaseUrl :: Maybe Text
   } deriving (Eq, Show)
 
+-- | Token for authorization
 data Token = Token
   { tokenText :: Text
   , expire    :: Expiration
   } deriving (Eq, Show)
 
+-- | Expiration of a token
 data Expiration
   = ExpiresAt UTCTime
   | Indefinitely
   deriving (Eq, Show)
 
+-- | Exceptions
 data ClientException
   = MethodNotDefined
   | FailedToInjectUrlParams Text
