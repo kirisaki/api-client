@@ -266,6 +266,10 @@ specFieldName = do
     it "normal case" $
       (encode $ HM.fromList [(fromRight undefined $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
 
+  context "use Data.Aeson.fromJSON" $ do
+    it "normal case" $
+      undefined
+
 specFieldValue :: Spec
 specFieldValue = do
   it "normal case" $

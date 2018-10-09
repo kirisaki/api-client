@@ -176,6 +176,12 @@ instance ToJSONKey FieldName where
       f (FieldName n) = decodeUtf8 $ original n
       g = text . f      
 
+instance FromJSON FieldName where
+  parseJSON = withText "FieldName" $
+    \t -> case fieldName t of
+      Right n -> return n
+      Left e -> fail $ T.unpack e
+
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldName :: Text -> Either Text FieldName
 fieldName t =
