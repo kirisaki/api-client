@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8dfd3a649a1a3d3854f28436cda5de8eecb60031638aa34962823a352a92a4dd
+-- hash: 93aa4feb67515f01a84ab5e22b1a47c937c72a8512673848282f07cb860e92ca
 
 name:           api-client
 version:        0.0.1
@@ -40,6 +40,7 @@ library
     , bytestring
     , case-insensitive
     , either
+    , hashable
     , http-client
     , http-types
     , safe-exceptions
@@ -64,6 +65,7 @@ test-suite api-client-test
     , bytestring
     , case-insensitive
     , either
+    , hashable
     , hspec
     , http-client
     , http-types
@@ -72,5 +74,6 @@ test-suite api-client-test
     , servant-server
     , text
     , time
+    , unordered-containers
     , warp
   default-language: Haskell2010

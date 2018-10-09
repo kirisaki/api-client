@@ -12,7 +12,9 @@ import           Control.Exception.Safe
 import           Data.Aeson
 import           Data.CaseInsensitive
 import           Data.Either
+import qualified Data.HashMap.Strict as HM
 import           Data.Proxy
+import  Data.Text (Text)
 import           Network.Api
 import qualified Network.HTTP.Client      as C
 import           Network.Wai.Handler.Warp (run)
@@ -233,6 +235,14 @@ specBuildHttpRequest = do
                            Nothing Nothing
                          ) sampleService `shouldThrow` isFailedToInjectUrlParams
 
+isError :: Result a -> Bool
+isError (Error _) = True
+isError _ = False
+
+isSuccess :: Result a -> Bool
+isSuccess (Success _) = True
+isSuccess _ = False
+
 specFieldName :: Spec
 specFieldName = do
   it "normal case1" $
@@ -252,6 +262,10 @@ specFieldName = do
   it "include non-ASCII character" $
     fieldName "にゃーん" `shouldSatisfy` isLeft
 
+  context "use Data.Aeson.toJSON" $ do
+    it "normal case" $
+      (encode $ HM.fromList [(fromRight undefined $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
+
 specFieldValue :: Spec
 specFieldValue = do
   it "normal case" $
@@ -266,6 +280,20 @@ specFieldValue = do
     fieldValue "ah\taa" `shouldSatisfy` isLeft
   it "include non-ASCII character" $
     fieldValue "にゃーん……" `shouldSatisfy` isLeft
+    
+  context "use Data.Aeson.toJSON" $ do
+    it "normal case" $
+      toJSON <$> fieldValue "hogehoge" `shouldBe` (Right $ String "hogehoge")
+    it "number should be converted to String" $
+      toJSON <$> fieldValue "1234" `shouldBe` (Right $ String "1234")
+    it "include symbol" $
+      toJSON <$> fieldValue "ex-parrot" `shouldBe` (Right $ String "ex-parrot")
+
+  context "use Data.Aeson.fromJSON" $ do
+    it "normal case" $
+      fromJSON "some text" `shouldBe` Success (fromRight undefined $ fieldValue "some text")
+    it "invalid value" $
+      (fromJSON "あああ" :: Result FieldValue) `shouldSatisfy` isError
 
 specField :: Spec
 specField = do

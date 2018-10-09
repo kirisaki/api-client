@@ -47,6 +47,7 @@ import qualified Data.ByteString.Lazy         as BSL
 import           Data.CaseInsensitive    (CI, mk, original)
 import Data.Char
 import           Data.Either.Combinators
+import           Data.Hashable
 import           Data.List               as L
 import           Data.Maybe
 import           Data.Text               as T
@@ -162,14 +163,8 @@ headerField name value =
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName { unFieldName :: CI BSS.ByteString } deriving(Show, Eq, Ord)
 
-instance ToJSON FieldName where
-  toJSON = String . decodeUtf8 . original . unFieldName
-
-instance FromJSON FieldName where
-  parseJSON = withText "FieldName" $
-    \t -> case fieldName t of
-      Right n -> return n
-      Left e -> fail $ T.unpack e
+instance Hashable FieldName where
+  hashWithSalt i (FieldName n) = hashWithSalt i n
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldName :: Text -> Either Text FieldName
@@ -190,7 +185,7 @@ instance ToJSON FieldValue where
   toJSON = String . decodeUtf8 . unFieldValue
 
 instance FromJSON FieldValue where
-  parseJSON = withText "FieldName" $
+  parseJSON = withText "FieldValue" $
     \t -> case fieldValue t of
       Right n -> return n
       Left e -> fail $ T.unpack e
