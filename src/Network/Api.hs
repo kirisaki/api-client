@@ -32,7 +32,8 @@ import           Control.Applicative
 import           Control.Exception.Safe  as E
 import           Data.Aeson
 import           Data.Attoparsec.Text    as A
-import           Data.ByteString         as BS
+import qualified Data.ByteString         as BSS
+import qualified Data.ByteString.Lazy         as BSL
 import           Data.CaseInsensitive    (mk)
 import           Data.Either.Combinators
 import           Data.List               as L
@@ -46,7 +47,7 @@ import qualified Network.HTTP.Client     as C
 import           Network.HTTP.Types.URI
 
 
-call :: Request -> Service -> IO ByteString
+call :: Request -> Service -> IO BSL.ByteString
 call req service = undefined
 
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
@@ -63,7 +64,7 @@ buildHttpRequest req service = do
   hreq <- C.setQueryString query <$> C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = headers }
 
-percentEncode :: Text -> ByteString
+percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
 
 lookupMethod :: Request -> Service -> Maybe Method
@@ -164,7 +165,7 @@ data Request = Request
   , pathParams     :: [(Text, Text)]
   , queryParams    :: [(Text, Maybe Text)]
   , headerParams   :: [(Text, Text)]
-  , requestBody    :: ByteString
+  , requestBody    :: BSS.ByteString
   , requestToken   :: Maybe Token
   , requestBaseUrl :: Maybe Text
   } deriving (Eq, Show)
