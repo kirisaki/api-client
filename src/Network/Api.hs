@@ -41,6 +41,7 @@ module Network.Api
 import           Control.Applicative
 import           Control.Exception.Safe  as E
 import           Data.Aeson
+import           Data.Aeson.Encoding (text)
 import           Data.Attoparsec.Text    as A
 import qualified Data.ByteString         as BSS
 import qualified Data.ByteString.Lazy         as BSL
@@ -165,6 +166,15 @@ newtype FieldName = FieldName { unFieldName :: CI BSS.ByteString } deriving(Show
 
 instance Hashable FieldName where
   hashWithSalt i (FieldName n) = hashWithSalt i n
+
+instance ToJSON FieldName where
+  toJSON (FieldName n) = String . decodeUtf8 $ original n
+
+instance ToJSONKey FieldName where
+  toJSONKey = ToJSONKeyText f g
+    where
+      f (FieldName n) = decodeUtf8 $ original n
+      g = text . f      
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldName :: Text -> Either Text FieldName
