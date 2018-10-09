@@ -243,6 +243,8 @@ specFieldName = do
     fieldName "Content-Length" `shouldBe` fieldName "content-length"
   it "include invalid character" $
     fieldName "something,wrong" `shouldSatisfy` isLeft
+  it "empty text" $
+    fieldName "" `shouldSatisfy` isLeft
   it "invalid characters in the end" $
     fieldName "ah?" `shouldSatisfy` isLeft
   it "include unprintable character" $
@@ -251,7 +253,27 @@ specFieldName = do
     fieldName "にゃーん" `shouldSatisfy` isLeft
 
 specFieldValue :: Spec
-specFieldValue = it "" pending
+specFieldValue = do
+  it "normal case" $
+    fieldValue "Netscape" `shouldSatisfy` isRight
+  it "include space" $
+    fieldValue "Interbet Exprorer" `shouldSatisfy` isRight
+  it "include symbols" $
+    fieldValue "\"spam-sausage/egg*\"" `shouldSatisfy` isRight
+  it "empty text" $
+    fieldValue "" `shouldSatisfy` isLeft
+  it "include unprintable character" $
+    fieldValue "ah\taa" `shouldSatisfy` isLeft
+  it "include non-ASCII character" $
+    fieldValue "にゃーん……" `shouldSatisfy` isLeft
 
 specField :: Spec
-specField = it "" pending
+specField = do
+  it "normal case" $
+    headerField "Accept" "application/someservice+json" `shouldSatisfy` isRight
+  it "invalid field name" $
+    headerField "" "hoge" `shouldBe` Left "invalid field name"
+  it "invalid field content" $
+    headerField "User-Agent" "" `shouldBe` Left "invalid field value"
+  it "both are invalid" $
+    headerField "spam/egg" "あああ" `shouldBe` Left "invalid field name and value"
