@@ -75,6 +75,9 @@ spec = do
   describe "injectUrl"  specInjectUrl
   describe "lookupMethod" specLookupMethod
   describe "buildHttpRequest" specBuildHttpRequest
+  describe "fieldName" specFieldName
+  describe "fieldValue" specFieldValue
+  describe "field" specField
 
 specInjectUrl :: Spec
 specInjectUrl = do
@@ -228,3 +231,12 @@ specBuildHttpRequest = do
                            [] [] [] ""
                            Nothing Nothing
                          ) sampleService `shouldThrow` isFailedToInjectUrlParams
+
+specFieldName :: Spec
+specFieldName = it "" pending
+
+specFieldValue :: Spec
+specFieldValue = it "" pending
+
+specField :: Spec
+specField = it "" pending

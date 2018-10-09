@@ -35,6 +35,7 @@ import           Data.Attoparsec.Text    as A
 import qualified Data.ByteString         as BSS
 import qualified Data.ByteString.Lazy         as BSL
 import           Data.CaseInsensitive    (mk)
+import Data.Char
 import           Data.Either.Combinators
 import           Data.List               as L
 import           Data.Maybe
@@ -51,7 +52,7 @@ import           Network.HTTP.Types.URI
 call :: Request -> Service -> IO BSL.ByteString
 call req service = undefined
 
--- | Build a Network.HTTP.Client.Request from Request
+-- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
   method <- case lookupMethod req service of
@@ -129,6 +130,30 @@ data Segment = Param Text | Raw Text deriving(Eq, Show)
 
 segment :: Parser Segment
 segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
+
+-- Headers
+-- | A field name of a HTTP header.
+newtype FieldName = FieldName { unFieldName :: BSS.ByteString } deriving(Show, Eq, Ord)
+instance ToJSON FieldName where
+  toJSON = String . decodeUtf8 . unFieldName
+instance FromJSON FieldName where
+  parseJSON = withText "FieldName" $
+    \t -> case fieldName t of
+      Right n -> return n
+      Left e -> fail $ T.unpack e
+
+-- | Make field name.
+fieldName :: Text -> Either Text FieldName
+fieldName t =
+  let
+    p = A.takeWhile (\c -> isAlpha c || isDigit c || inClass "!#$%&'*+-.^_`|~" c)
+  in
+    case feed (parse p t) "" of
+      Done "" n -> Right . FieldName $ encodeUtf8 n
+      Done _ _ -> Left "included invalid a character character(see RFC7230)"
+      Fail _ _ _ -> Left "included invalid a character character(see RFC7230)"
+      Partial _ -> Left "lack input"
+
 
 -- | API definition
 data Method = Method
