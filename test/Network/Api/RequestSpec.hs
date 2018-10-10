@@ -3,19 +3,19 @@
 {-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE TypeOperators     #-}
 
-module Network.ApiSpec where
+module Network.Api.RequestSpec where
 
+import           Network.Api.Request
+import           Network.Api.Service
 import           Test.Hspec
 
 import           Control.Concurrent       (forkIO, killThread)
 import           Control.Exception.Safe
 import           Data.Aeson
-import           Data.CaseInsensitive
-import           Data.Either
-import qualified Data.HashMap.Strict as HM
+import           Data.CaseInsensitive     (mk)
+import qualified Data.HashMap.Strict      as HM
 import           Data.Proxy
-import  Data.Text (Text)
-import           Network.Api
+import           Data.Text                (Text)
 import qualified Network.HTTP.Client      as C
 import           Network.Wai.Handler.Warp (run)
 import           Servant                  hiding (GET, POST)
@@ -171,7 +171,7 @@ specBuildHttpRequest = do
                                    GET "user/:id"
                                    [("id", "1234")]
                                    [] [] ""
-                                   (Just $ Token "fuga" Indefinitely) Nothing
+                                   (Just $ Token "fuga" Nothing) Nothing
                                  ) sampleService
       actual `shouldBe` expected
     it "token at query string" $ do
@@ -186,7 +186,7 @@ specBuildHttpRequest = do
                                    GET "user/:id"
                                    [("id", "1234")]
                                    [] [] ""
-                                   (Just $ Token "fuga" Indefinitely) Nothing
+                                   (Just $ Token "fuga" Nothing) Nothing
                                  ) service
       actual `shouldBe` expected
     it "has additional queries" $ do
@@ -206,7 +206,7 @@ specBuildHttpRequest = do
                                    GET "user/:id"
                                    [("id", "1234")]
                                    [] [("x-nyaan", "nyaan"), ("Accept", "application/nyaan.v3+json")] ""
-                                   (Just $ Token "fuga" Indefinitely) Nothing
+                                   (Just $ Token "fuga" Nothing) Nothing
                                  ) sampleService
       actual `shouldBe` expected
 
