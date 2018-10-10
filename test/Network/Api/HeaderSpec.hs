@@ -4,6 +4,7 @@ module Network.Api.HeaderSpec where
 
 import           Network.Api.Header
 import           Test.Hspec
+import           TestUtils
 
 import           Data.Aeson
 import           Data.ByteString
@@ -13,22 +14,6 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.List            as L
 import           Data.Text            (Text)
 import           Data.Text.Encoding
-
--- Misc for aeson
-isError :: Result a -> Bool
-isError (Error _) = True
-isError _         = False
-
-isSuccess :: Result a -> Bool
-isSuccess (Success _) = True
-isSuccess _           = False
-
---Unsafe helper for tests
-right :: Either a b -> b
-right (Right b)  = b
-
-left :: Either a b -> a
-left (Left a) = a
 
 spec :: Spec
 spec = do

@@ -5,15 +5,18 @@
 
 module Network.Api.RequestSpec where
 
+import           Network.Api.Header
 import           Network.Api.Request
 import           Network.Api.Service
 import           Test.Hspec
+import           TestUtils
 
 import           Control.Concurrent       (forkIO, killThread)
 import           Control.Exception.Safe
 import           Data.Aeson
 import           Data.CaseInsensitive     (mk)
 import qualified Data.HashMap.Strict      as HM
+import qualified Data.List                as L
 import           Data.Proxy
 import           Data.Text                (Text)
 import qualified Network.HTTP.Client      as C
@@ -108,43 +111,43 @@ specLookupMethod = do
     lookupMethod ( Request
                    GET "user/:id"
                    [("id", "1234")]
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Just (Method GET "user/:id")
   it "braced path" $
     lookupMethod ( Request
                    POST "user/{id}/comment/{article}"
                    [("id", "1234"), ("article", "331")]
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
   it "head slash different" $
     lookupMethod ( Request
                    POST "/user/{id}/comment/{article}"
                    [("id", "1234"), ("article", "331")]
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
   it "parameter in path" $
     lookupMethod ( Request
                    GET "user/1234"
                    []
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Just (Method GET "user/:id")
   it "mixed path" $
     lookupMethod ( Request
                    POST "user/{id}/comment/:article"
                    [("id", "1234"), ("article", "331")]
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
   it "not exist" $
     lookupMethod ( Request
                    GET "nyaan/:aaa"
                    []
-                   [] [] "" Nothing Nothing
+                   [] HM.empty "" Nothing Nothing
                  ) sampleService `shouldBe` Nothing
   it "invalid method" $
     lookupMethod ( Request
                    GET "user/{id}/comment/{article}"
                    [("id", "1234"), ("article", "331")]
-                   [] []  "" Nothing Nothing
+                   [] HM.empty  "" Nothing Nothing
                  ) sampleService `shouldBe` Nothing
 
 specBuildHttpRequest :: Spec
@@ -157,7 +160,7 @@ specBuildHttpRequest = do
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] [] ""
+                                   [] HM.empty ""
                                    Nothing Nothing
                                  ) sampleService
       actual `shouldBe` expected
@@ -170,7 +173,7 @@ specBuildHttpRequest = do
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] [] ""
+                                   [] HM.empty ""
                                    (Just $ Token "fuga" Nothing) Nothing
                                  ) sampleService
       actual `shouldBe` expected
@@ -185,7 +188,7 @@ specBuildHttpRequest = do
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] [] ""
+                                   [] HM.empty ""
                                    (Just $ Token "fuga" Nothing) Nothing
                                  ) service
       actual `shouldBe` expected
@@ -194,18 +197,18 @@ specBuildHttpRequest = do
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [("a", Just "aaa"), ("b", Nothing)] [] ""
+                                   [("a", Just "aaa"), ("b", Nothing)] HM.empty ""
                                    Nothing Nothing
                                  ) sampleService
       actual `shouldBe` expected
     it "has additional headers" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
       let expected = req
-            { C.requestHeaders = [(mk "X-Nyaan", "nyaan"), (mk "Accept", "application/nyaan.v3+json")] }
+            { C.requestHeaders = L.sort [(mk "X-Nyaan", "nyaan"), (mk "Accept", "application/nyaan.v3+json")] }
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] [("x-nyaan", "nyaan"), ("Accept", "application/nyaan.v3+json")] ""
+                                   [] (right $ fromList [("x-nyaan", "nyaan"), ("Accept", "application/nyaan.v3+json")]) ""
                                    (Just $ Token "fuga" Nothing) Nothing
                                  ) sampleService
       actual `shouldBe` expected
@@ -218,7 +221,8 @@ specBuildHttpRequest = do
       in
         buildHttpRequest ( Request
                            GET "nyaan"
-                           [] [] [] ""
+                           []
+                           [] HM.empty ""
                            Nothing Nothing
                          ) sampleService `shouldThrow` isMethodNotDefined
     it "failed to injecr url params" $
@@ -228,7 +232,8 @@ specBuildHttpRequest = do
       in
         buildHttpRequest ( Request
                            GET "user/:id"
-                           [] [] [] ""
+                           []
+                           [] HM.empty ""
                            Nothing Nothing
                          ) sampleService `shouldThrow` isFailedToInjectUrlParams
 

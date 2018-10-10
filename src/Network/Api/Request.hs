@@ -54,7 +54,7 @@ data Request = Request
   , path           :: Text
   , pathParams     :: [(Text, Text)]
   , query          :: [(Text, Maybe Text)]
-  , headers        :: [(Text, Text)]
+  , headers        :: Fields
   , body           :: BSS.ByteString
   , token          :: Maybe Token
   , alternativeUrl :: Maybe Text
@@ -71,9 +71,8 @@ buildHttpRequest req service = do
             Left l  -> throw $ FailedToInjectUrlParams l
   let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
   let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (query req)
-  let hs = L.map (\(k, v) -> (mk $ encodeUtf8 k, encodeUtf8 v)) (headers req)
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
-  return $ hreq { C.requestHeaders = hs }
+  return $ hreq { C.requestHeaders = toList' $ headers req }
 
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
