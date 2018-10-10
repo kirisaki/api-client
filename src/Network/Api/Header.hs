@@ -34,11 +34,12 @@ import           Data.Attoparsec.Text as A
 import qualified Data.ByteString      as BSS
 import           Data.CaseInsensitive (CI, mk, original)
 import           Data.Char
+import           Data.Either
 import           Data.Hashable
 import           Data.Text            as T
 import           Data.Text.Encoding
 
--- | Field name and value of HTTP header.
+-- | Field of HTTP header.
 data Field = Field { getFieldName  :: FieldName
                    , getFieldValue :: FieldValue
                    } deriving (Show, Eq, Ord)
@@ -56,7 +57,9 @@ field name value =
     (Right n, Right v) -> Right $ Field n v
 
 -- | A field name of a HTTP header.
-newtype FieldName = FieldName { unFieldName :: CI BSS.ByteString } deriving(Show, Eq, Ord)
+newtype FieldName = FieldName
+  { unFieldName :: CI BSS.ByteString -- ^ Unwrap field name.
+  } deriving(Show, Eq, Ord)
 
 instance Hashable FieldName where
   hashWithSalt i (FieldName n) = hashWithSalt i n
@@ -76,7 +79,12 @@ instance FromJSON FieldName where
       Right n -> return n
       Left e  -> fail $ T.unpack e
 
--- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
+instance FromJSONKey FieldName where
+  fromJSONKey = FromJSONKeyTextParser f
+    where
+      f = either (fail . T.unpack) return . fieldName
+
+-- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
 fieldName :: Text -> Either Text FieldName
 fieldName t =
   let
@@ -89,7 +97,9 @@ fieldName t =
       Partial _ -> Left "lack input"
 
 -- | A field value of a HTTP header.
-newtype FieldValue = FieldValue { unFieldValue :: BSS.ByteString } deriving(Show, Eq, Ord)
+newtype FieldValue = FieldValue
+  { unFieldValue :: BSS.ByteString -- ^ Unwrap field value.
+  } deriving(Show, Eq, Ord)
 
 instance ToJSON FieldValue where
   toJSON = String . decodeUtf8 . unFieldValue
@@ -100,7 +110,7 @@ instance FromJSON FieldValue where
       Right n -> return n
       Left e  -> fail $ T.unpack e
 
--- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
+-- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
 fieldValue :: Text -> Either Text FieldValue
 fieldValue t =
   let

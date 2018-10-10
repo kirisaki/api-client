@@ -2,23 +2,30 @@
 
 module Network.Api.HeaderSpec where
 
-import           Test.Hspec
 import           Network.Api.Header
+import           Test.Hspec
 
 import           Data.Aeson
 import           Data.CaseInsensitive
 import           Data.Either
-import qualified Data.HashMap.Strict as HM
-import Data.Text (Text)
+import qualified Data.HashMap.Strict  as HM
+import           Data.Text            (Text)
 
 -- Misc for aeson
 isError :: Result a -> Bool
 isError (Error _) = True
-isError _ = False
+isError _         = False
 
 isSuccess :: Result a -> Bool
 isSuccess (Success _) = True
-isSuccess _ = False
+isSuccess _           = False
+
+--Unsafe helper for tests
+right :: Either a b -> b
+right (Right b)  = b
+
+left :: Either a b -> a
+left (Left a) = a
 
 spec :: Spec
 spec = do
@@ -45,13 +52,11 @@ specFieldName = do
   it "include non-ASCII character" $
     fieldName "にゃーん" `shouldSatisfy` isLeft
 
-  context "use Data.Aeson.toJSON" $
-    it "normal case" $
-    encode (HM.fromList [(fromRight undefined $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
-
-  context "use Data.Aeson.fromJSON" $
-    it "normal case"
-    pending
+  it "encode key" $
+    encode (HM.fromList [(right $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
+  it "decode key" $
+    (decode "{\"hogehoge\":\"fuga\"}" :: Maybe (HM.HashMap FieldName Text))
+    `shouldBe` (Just $ HM.fromList [(right $ fieldName "hogehoge", "fuga")])
 
 specFieldValue :: Spec
 specFieldValue = do
@@ -67,7 +72,7 @@ specFieldValue = do
     fieldValue "ah\taa" `shouldSatisfy` isLeft
   it "include non-ASCII character" $
     fieldValue "にゃーん……" `shouldSatisfy` isLeft
-    
+
   context "use Data.Aeson.toJSON" $ do
     it "normal case" $
       toJSON <$> fieldValue "hogehoge" `shouldBe` (Right $ String "hogehoge")
