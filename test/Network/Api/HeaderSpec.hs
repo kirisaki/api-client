@@ -29,9 +29,35 @@ left (Left a) = a
 
 spec :: Spec
 spec = do
+  describe "field" specField
+  describe "fields" specFields
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
-  describe "field" specField
+
+specField :: Spec
+specField = do
+  it "normal case" $
+    field "Accept" "application/someservice+json" `shouldSatisfy` isRight
+  it "invalid field name" $
+    field "" "hoge" `shouldBe` Left "invalid field name"
+  it "invalid field content" $
+    field "User-Agent" "" `shouldBe` Left "invalid field value"
+  it "both are invalid" $
+    field "spam/egg" "あああ" `shouldBe` Left "invalid field name and value"
+
+specFields :: Spec
+specFields =
+  let
+    fields = HM.fromList
+      [ (right $ fieldName "User-Agent", right $ fieldValue "Netscape Navigator")
+      , (right $ fieldName "Accept", right $ fieldValue "application/json")
+      ] :: Fields
+    encoded = "{\"User-Agent\":\"Netscape Navigator\",\"Accept\":\"application/json\"}"
+  in do
+    it "JSON encode" $
+      encode fields `shouldBe` encoded
+    it "JSON decode" $
+      decode encoded `shouldBe` Just fields
 
 specFieldName :: Spec
 specFieldName = do
@@ -86,14 +112,3 @@ specFieldValue = do
       fromJSON "some text" `shouldBe` Success (fromRight undefined $ fieldValue "some text")
     it "invalid value" $
       (fromJSON "あああ" :: Result FieldValue) `shouldSatisfy` isError
-
-specField :: Spec
-specField = do
-  it "normal case" $
-    field "Accept" "application/someservice+json" `shouldSatisfy` isRight
-  it "invalid field name" $
-    field "" "hoge" `shouldBe` Left "invalid field name"
-  it "invalid field content" $
-    field "User-Agent" "" `shouldBe` Left "invalid field value"
-  it "both are invalid" $
-    field "spam/egg" "あああ" `shouldBe` Left "invalid field name and value"

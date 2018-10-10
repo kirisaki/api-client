@@ -13,6 +13,7 @@ module Network.Api.Header
   (
     -- * Field of HTTP header
     Field
+  , Fields
   , field
   , getFieldName
   , getFieldValue
@@ -36,6 +37,7 @@ import           Data.CaseInsensitive (CI, mk, original)
 import           Data.Char
 import           Data.Either
 import           Data.Hashable
+import           Data.HashMap.Strict
 import           Data.Text            as T
 import           Data.Text.Encoding
 
@@ -44,8 +46,10 @@ data Field = Field { getFieldName  :: FieldName
                    , getFieldValue :: FieldValue
                    } deriving (Show, Eq, Ord)
 
-instance ToJSON Field where
-  toJSON (Field (FieldName name) (FieldValue value)) = object [ decodeUtf8 (original name) .= decodeUtf8 value ]
+-- | Collection of fields.
+--   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
+--   but this makes implements complecated, so treat field as unique in this module.
+type Fields = HashMap FieldName FieldValue
 
 -- | Make header field from 'Text'
 field :: T.Text -> T.Text -> Either Text Field

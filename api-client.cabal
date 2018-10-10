@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e1d157b29fb4f5aa806841a4c236a25adc064469e226e856d9540bfa968781b1
+-- hash: bce0918d06aea0bb79d4ddf7f6f4673f64c16263c3136a31652ec971c557c23c
 
 name:           api-client
 version:        0.0.1
@@ -49,6 +49,7 @@ library
     , safe-exceptions
     , text
     , time
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite api-client-test
