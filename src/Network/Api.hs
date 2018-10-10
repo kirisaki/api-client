@@ -15,21 +15,18 @@ module Network.Api
     -- * Function
     call
   , buildHttpRequest
-  , lookupMethod
-  , injectUrlParams
-  -- * Data
-  , Method(..)
-  , HttpMethod(..)
-  , Service(..)
   , Request(..)
   , Token(..)
   , Expiration(..)
+  -- * Service
+  , module Network.Api.Service
   -- * Header
   , module Network.Api.Header
   -- * Exception
   , ClientException(..)
   ) where
 
+import Network.Api.Service
 import Network.Api.Header
 
 import           Control.Applicative
@@ -58,6 +55,18 @@ import           Network.HTTP.Types.URI
 call :: Request -> Service -> IO BSL.ByteString
 call req service = undefined
 
+-- | Request to call API.
+data Request = Request
+  { requestMethod  :: HttpMethod
+  , requestPath    :: Text
+  , pathParams     :: [(Text, Text)]
+  , queryParams    :: [(Text, Maybe Text)]
+  , headerParams   :: [(Text, Text)]
+  , requestBody    :: BSS.ByteString
+  , requestToken   :: Maybe Token
+  , requestBaseUrl :: Maybe Text
+  } deriving (Eq, Show)
+
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
@@ -75,6 +84,26 @@ buildHttpRequest req service = do
 
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
+
+
+-- | Expiration of a token
+data Expiration
+  = ExpiresAt UTCTime
+  | Indefinitely
+  deriving (Eq, Show)
+
+-- | Exceptions
+data ClientException
+  = MethodNotDefined
+  | FailedToInjectUrlParams Text
+  deriving(Show, Typeable)
+instance Exception ClientException
+
+-- | Token for authorization
+data Token = Token
+  { tokenText :: Text
+  , expire    :: Maybe UTCTime
+  } deriving (Eq, Show)
 
 -- | Look up a method which matchs an API definition.
 lookupMethod :: Request -> Service -> Maybe Method
@@ -110,13 +139,13 @@ injectUrlParams path params =
             Param k ->
               case lookup k params of
                 Just v ->
-                  inject (Right (path `T.snoc` '/' `T.append` v), rem)
+                  inject (Right (path `snoc` '/' `append` v), rem)
                 Nothing ->
                   Left "lack parameters"
             Raw "" ->
               inject (Right path, rem)
             Raw t ->
-              inject (Right (path `T.snoc` '/' `T.append` t), rem)
+              inject (Right (path `snoc` '/' `append` t), rem)
         _ ->
           Left "failed parsing"
   in
@@ -124,10 +153,10 @@ injectUrlParams path params =
 
 -- Parsers
 bracedParam :: Parser Segment
-bracedParam = Param <$> (char '{' *> A.takeTill (== '}') <* char '}')
+bracedParam = Param <$> (char '{' *> takeTill (== '}') <* char '}')
 
 colonParam :: Parser Segment
-colonParam = Param <$> (char ':' *> A.takeTill (== '/'))
+colonParam = Param <$> (char ':' *> takeTill (== '/'))
 
 rawPath :: Parser Segment
 rawPath = Raw <$> (takeTill (== '/') <|> takeText)
@@ -136,71 +165,3 @@ data Segment = Param Text | Raw Text deriving(Eq, Show)
 
 segment :: Parser Segment
 segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')
-
--- | API definition
-data Method = Method
-  { httpMethod  :: HttpMethod
-  , apiEndpoint :: Text
-  } deriving (Eq, Show, Ord, Read, Generic)
-instance FromJSON Method
-instance ToJSON Method
-
--- | API Definition
-data Service = Service
-  { baseUrl           :: Text
-  , methods           :: [Method]
-  , defaultHeader     :: [(Text, Text)]
-  , tokenHeaderName   :: Maybe Text
-  , tokenHeaderPrefix :: Maybe Text
-  , tokenQueryName    :: Maybe Text
-  } deriving (Eq, Show, Ord, Read, Generic)
-instance FromJSON Service
-instance ToJSON Service
-
--- | HTTP method
-data HttpMethod
-  = GET
-  | POST
-  | HEAD
-  | PUT
-  | DELETE
-  | TRACE
-  | CONNECT
-  | OPTIONS
-  | PATCH
-  | Custom Text
-  deriving (Show, Ord, Eq, Read, Generic)
-instance FromJSON HttpMethod
-instance ToJSON HttpMethod
-
--- | API request
-data Request = Request
-  { requestMethod  :: HttpMethod
-  , requestPath    :: Text
-  , pathParams     :: [(Text, Text)]
-  , queryParams    :: [(Text, Maybe Text)]
-  , headerParams   :: [(Text, Text)]
-  , requestBody    :: BSS.ByteString
-  , requestToken   :: Maybe Token
-  , requestBaseUrl :: Maybe Text
-  } deriving (Eq, Show)
-
--- | Token for authorization
-data Token = Token
-  { tokenText :: Text
-  , expire    :: Expiration
-  } deriving (Eq, Show)
-
--- | Expiration of a token
-data Expiration
-  = ExpiresAt UTCTime
-  | Indefinitely
-  deriving (Eq, Show)
-
--- | Exceptions
-data ClientException
-  = MethodNotDefined
-  | FailedToInjectUrlParams Text
-  deriving(Show, Typeable)
-instance Exception ClientException
-
