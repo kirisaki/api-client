@@ -14,7 +14,6 @@ module Network.Api.Request
   (
     Request(..)
   , Token(..)
-  , Expiration(..)
   , ClientException(..)
   , call
   , buildHttpRequest
@@ -78,12 +77,6 @@ buildHttpRequest req service = do
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
 
-
--- | Expiration of a token
-data Expiration
-  = ExpiresAt UTCTime
-  | Indefinitely
-  deriving (Eq, Show)
 
 -- | Exceptions
 data ClientException
