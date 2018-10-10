@@ -26,11 +26,11 @@ import           GHC.Generics
 data Service = Service
   { baseUrl           :: Text
   , methods           :: [Method]
-  , defaultHeader     :: [(Text, Text)]
-  , tokenHeaderName   :: Maybe Text
-  , tokenHeaderPrefix :: Maybe Text
+  , defaultHeader     :: Fields
+  , tokenHeaderName   :: Maybe FieldName
+  , tokenHeaderPrefix :: Maybe FieldValue
   , tokenQueryName    :: Maybe Text
-  } deriving (Eq, Show, Ord, Read, Generic)
+  } deriving (Eq, Show, Ord, Generic)
 instance FromJSON Service
 instance ToJSON Service
 
