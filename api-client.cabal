@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 93aa4feb67515f01a84ab5e22b1a47c937c72a8512673848282f07cb860e92ca
+-- hash: 364d56eb78a2a42773b4186faead82237bf5c2a51437b4f788eb497a730f9451
 
 name:           api-client
 version:        0.0.1
@@ -29,6 +29,7 @@ source-repository head
 library
   exposed-modules:
       Network.Api
+      Network.Api.Header
   other-modules:
       Paths_api_client
   hs-source-dirs:
@@ -52,6 +53,7 @@ test-suite api-client-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Network.Api.HeaderSpec
       Network.ApiSpec
       Paths_api_client
   hs-source-dirs:
