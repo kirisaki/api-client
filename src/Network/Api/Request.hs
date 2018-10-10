@@ -44,7 +44,8 @@ import qualified Network.HTTP.Client     as C
 import           Network.HTTP.Types.URI
 
 
--- | Call WebAPI
+-- | Call WebAPI with getting or updating token automatically.
+--   It's also possible to give a token explicitly.
 call :: Request -> Service -> IO BSL.ByteString
 call req service = undefined
 
@@ -54,7 +55,7 @@ data Request = Request
   , path           :: Text
   , pathParams     :: [(Text, Text)]
   , query          :: [(Text, Maybe Text)]
-  , headers        :: Fields
+  , header         :: Fields
   , body           :: BSS.ByteString
   , token          :: Maybe Token
   , alternativeUrl :: Maybe Text
@@ -72,7 +73,7 @@ buildHttpRequest req service = do
   let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
   let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (query req)
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
-  return $ hreq { C.requestHeaders = toList' $ headers req `HM.union` defaultHeaders service }
+  return $ hreq { C.requestHeaders = toList' $ header req `HM.union` defaultHeader service }
 
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
