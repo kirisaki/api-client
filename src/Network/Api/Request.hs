@@ -33,6 +33,7 @@ import qualified Data.ByteString.Lazy    as BSL
 import           Data.CaseInsensitive    (CI, mk, original)
 import           Data.Either.Combinators
 import           Data.Hashable
+import qualified Data.HashMap.Strict     as HM
 import           Data.List               as L
 import           Data.Maybe
 import           Data.Text               as T
@@ -72,7 +73,7 @@ buildHttpRequest req service = do
   let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
   let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (query req)
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
-  return $ hreq { C.requestHeaders = toList' $ headers req }
+  return $ hreq { C.requestHeaders = toList' $ headers req `HM.union` defaultHeaders service }
 
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8

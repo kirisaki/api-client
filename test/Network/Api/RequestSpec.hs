@@ -54,9 +54,9 @@ sampleService = Service
                 , Method POST "user/{id}/comment/{article}"
                 , Method POST "token"
                 ]
-                [("User-Agent", "nyaan")]
-                (Just "Authorization")
-                (Just "Bearer")
+                (right $ fromList [("User-Agent", "Netscape Navigator")])
+                (Just . right $ fieldName "Authorization")
+                (Just . right $ fieldValue "Bearer")
                 Nothing
 
 instance Eq C.Request where
@@ -64,7 +64,7 @@ instance Eq C.Request where
            [ eq C.host
            , eq C.port
            , eq C.secure
-           , eq C.requestHeaders
+           , eq (L.sort . C.requestHeaders)
            , eq C.path
            , eq C.queryString
            , eq C.method
@@ -156,7 +156,7 @@ specBuildHttpRequest = do
     it "normal case without token" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
       let expected = req {C.requestHeaders =
-                          [ (mk "User-Agent", "nyaan")]}
+                          [ (mk "User-Agent", "Netscape Navigator")]}
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -167,7 +167,7 @@ specBuildHttpRequest = do
     it "token at header" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
       let expected = req {C.requestHeaders =
-                          [ (mk "User-Agent", "nyaan")
+                          [ (mk "User-Agent", "Netscape Navigator")
                           , (mk "Authorization", "Bearer fuga")
                           ]}
       actual <- buildHttpRequest ( Request
@@ -184,7 +184,7 @@ specBuildHttpRequest = do
             , tokenHeaderPrefix = Nothing
             , tokenQueryName = Just "token"}
       let expected = C.setQueryString [("token", Just "fuga")] req {C.requestHeaders =
-                          [ (mk "User-Agent", "nyaan")]}
+                          [ (mk "User-Agent", "Netscape Navigator")]}
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -193,7 +193,10 @@ specBuildHttpRequest = do
                                  ) service
       actual `shouldBe` expected
     it "has additional queries" $ do
-      expected <- C.parseUrlThrow "https://example.net/user/1234?a=aaa&b"
+      req <- C.parseUrlThrow "https://example.net/user/1234?a=aaa&b"
+      let expected = req
+            { C.requestHeaders =
+                [ (mk "User-Agent", "Netscape Navigator")] }
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
@@ -204,11 +207,17 @@ specBuildHttpRequest = do
     it "has additional headers" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
       let expected = req
-            { C.requestHeaders = L.sort [(mk "X-Nyaan", "nyaan"), (mk "Accept", "application/nyaan.v3+json")] }
+            { C.requestHeaders =
+                [ (mk "X-Nyaan", "nyaan")
+                , (mk "Accept", "application/nyaan.v3+json")
+                , (mk "User-Agent", "Netscape Navigator")] }
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] (right $ fromList [("x-nyaan", "nyaan"), ("Accept", "application/nyaan.v3+json")]) ""
+                                   [] (right $ fromList
+                                        [ ("x-nyaan", "nyaan")
+                                        , ("Accept", "application/nyaan.v3+json")
+                                        ]) ""
                                    (Just $ Token "fuga" Nothing) Nothing
                                  ) sampleService
       actual `shouldBe` expected

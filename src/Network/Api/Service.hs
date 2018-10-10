@@ -26,7 +26,7 @@ import           GHC.Generics
 data Service = Service
   { baseUrl           :: Text
   , methods           :: [Method]
-  , defaultHeader     :: Fields
+  , defaultHeaders    :: Fields
   , tokenHeaderName   :: Maybe FieldName
   , tokenHeaderPrefix :: Maybe FieldValue
   , tokenQueryName    :: Maybe Text
