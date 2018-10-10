@@ -30,7 +30,7 @@ left (Left a) = a
 spec :: Spec
 spec = do
   describe "Fields and JSON can convert mutal" specConvertFields
-  describe "fields" specFields
+  describe "fromList" specFromList
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
@@ -48,10 +48,10 @@ specConvertFields =
     it "JSON decode" $
       decode encoded `shouldBe` Just fields
 
-specFields :: Spec
-specFields = do
+specFromList :: Spec
+specFromList = do
   it "normal case" $
-    fields
+    fromList
     [ ("Accept", "application/someservice+json")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe`
@@ -60,17 +60,17 @@ specFields = do
     , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
     ])
   it "invalid field name" $
-    fields
+    fromList
     [ ("Accept", "application/someservice+json")
     , ("user/agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field name"
   it "invalid field value" $
-    fields
+    fromList
     [ ("Accept", "なんらか")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field value"
   it "both are invalid sametime" $
-    fields
+    fromList
     [ ("every/thing", "間違っている")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field name and value"

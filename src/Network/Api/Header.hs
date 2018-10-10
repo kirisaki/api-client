@@ -13,7 +13,7 @@ module Network.Api.Header
   (
     -- * Field of HTTP header
     Fields
-  , fields
+  , fromList
 
     -- * Header name
   , FieldName
@@ -35,18 +35,18 @@ import           Data.CaseInsensitive (CI, mk, original)
 import           Data.Char
 import           Data.Either
 import           Data.Hashable
-import           Data.HashMap.Strict  as HM
+import qualified Data.HashMap.Strict  as HM
 import           Data.Text            as T
 import           Data.Text.Encoding
 
 -- | Collection of HTTP header fields.
 --   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
 --   but this makes implements complecated, so treat field as unique in this module.
-type Fields = HashMap FieldName FieldValue
+type Fields = HM.HashMap FieldName FieldValue
 
--- | Make header field from 'Text'
-fields :: [(T.Text, T.Text)] ->  Either Text Fields
-fields kvs =
+-- | Make header field from pairs of key-value
+fromList :: [(T.Text, T.Text)] ->  Either Text Fields
+fromList kvs =
   HM.fromList <$> forM kvs (
   \(k, v) ->
     case (fieldName k, fieldValue v) of

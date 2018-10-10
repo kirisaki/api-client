@@ -23,7 +23,7 @@ module Network.Api
 
     -- * Header
   , Fields
-  , fields
+  , fromList
   , FieldName
   , fieldName
   , unFieldName
