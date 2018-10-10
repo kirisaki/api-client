@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
 -- Module      :  Network.Api
@@ -7,34 +9,39 @@
 -- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
 --
 -----------------------------------------------------------------------------
-{-# LANGUAGE OverloadedStrings  #-}
 module Network.Api.Header
-  ( Field
+  (
+    -- * Field of HTTP header
+    Field
   , field
   , getFieldName
   , getFieldValue
+
+    -- * Header name
   , FieldName
   , fieldName
   , unFieldName
+
+    -- * Header value
   , FieldValue
   , fieldValue
   , unFieldValue
   ) where
 
 import           Data.Aeson
-import           Data.Aeson.Encoding (text)
-import           Data.Attoparsec.Text    as A
-import qualified Data.ByteString         as BSS
-import           Data.CaseInsensitive    (CI, mk, original)
+import           Data.Aeson.Encoding  (text)
+import           Data.Attoparsec.Text as A
+import qualified Data.ByteString      as BSS
+import           Data.CaseInsensitive (CI, mk, original)
 import           Data.Char
 import           Data.Hashable
-import           Data.Text               as T
+import           Data.Text            as T
 import           Data.Text.Encoding
 
 -- | Field name and value of HTTP header.
-data Field = Field { getFieldName :: FieldName
-                               , getFieldValue :: FieldValue
-                               } deriving (Show, Eq, Ord)
+data Field = Field { getFieldName  :: FieldName
+                   , getFieldValue :: FieldValue
+                   } deriving (Show, Eq, Ord)
 
 instance ToJSON Field where
   toJSON (Field (FieldName name) (FieldValue value)) = object [ decodeUtf8 (original name) .= decodeUtf8 value ]
@@ -43,11 +50,11 @@ instance ToJSON Field where
 field :: T.Text -> T.Text -> Either Text Field
 field name value =
   case (fieldName name, fieldValue value) of
-    (Left _, Left _) -> Left "invalid field name and value"
-    (Left _, Right _) -> Left "invalid field name"
-    (Right _, Left _) -> Left "invalid field value"
+    (Left _, Left _)   -> Left "invalid field name and value"
+    (Left _, Right _)  -> Left "invalid field name"
+    (Right _, Left _)  -> Left "invalid field value"
     (Right n, Right v) -> Right $ Field n v
-    
+
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName { unFieldName :: CI BSS.ByteString } deriving(Show, Eq, Ord)
 
@@ -61,13 +68,13 @@ instance ToJSONKey FieldName where
   toJSONKey = ToJSONKeyText f g
     where
       f (FieldName n) = decodeUtf8 $ original n
-      g = text . f      
+      g = text . f
 
 instance FromJSON FieldName where
   parseJSON = withText "FieldName" $
     \t -> case fieldName t of
       Right n -> return n
-      Left e -> fail $ T.unpack e
+      Left e  -> fail $ T.unpack e
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldName :: Text -> Either Text FieldName
@@ -77,8 +84,8 @@ fieldName t =
   in
     case feed (parse p t) "" of
       Done "" n -> Right . FieldName . mk $ encodeUtf8 n
-      Done _ _ -> Left "included invalid a character character"
-      Fail {} -> Left "included invalid a character character"
+      Done _ _  -> Left "included invalid a character character"
+      Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"
 
 -- | A field value of a HTTP header.
@@ -91,7 +98,7 @@ instance FromJSON FieldValue where
   parseJSON = withText "FieldValue" $
     \t -> case fieldValue t of
       Right n -> return n
-      Left e -> fail $ T.unpack e
+      Left e  -> fail $ T.unpack e
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>
 fieldValue :: Text -> Either Text FieldValue
@@ -101,6 +108,6 @@ fieldValue t =
   in
     case feed (parse p t) "" of
       Done "" n -> Right . FieldValue $ encodeUtf8 n
-      Done _ _ -> Left "included invalid a character character"
-      Fail {} -> Left "included invalid a character character"
+      Done _ _  -> Left "included invalid a character character"
+      Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"

@@ -1,15 +1,25 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# OPTIONS_HADDOCK not-home    #-}
+----------------------------------------------------------------------------
+-- |
+-- Module      :  Network.Api
+-- Copyright   :  (c) Akihito KIRISAKI 2018
+-- License     :  BSD3
+--
+-- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
+--
+-----------------------------------------------------------------------------
 module Network.Api.Request
   (
-    call
-  , Request(..)
-  , buildHttpRequest
-  , lookupMethod
-  , injectUrlParams
+    Request(..)
   , Token(..)
   , Expiration(..)
   , ClientException(..)
+  , call
+  , buildHttpRequest
+  , lookupMethod
+  , injectUrlParams
   ) where
 
 import           Network.Api.Header

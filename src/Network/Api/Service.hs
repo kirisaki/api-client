@@ -1,16 +1,26 @@
-{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_HADDOCK not-home    #-}
+----------------------------------------------------------------------------
+-- |
+-- Module      :  Network.Api
+-- Copyright   :  (c) Akihito KIRISAKI 2018
+-- License     :  BSD3
+--
+-- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
+--
+-----------------------------------------------------------------------------
 module Network.Api.Service
   ( Service(..)
   , Method(..)
   , HttpMethod(..)
   ) where
 
-import Network.Api.Header
+import           Network.Api.Header
 
 import           Data.Aeson
 import           Data.Attoparsec.Text
 import           Data.Text
-import GHC.Generics
+import           GHC.Generics
 
 -- | API Definition
 data Service = Service

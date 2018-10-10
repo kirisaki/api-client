@@ -8,14 +8,33 @@
 --
 -----------------------------------------------------------------------------
 module Network.Api
-  -- * Request
-  ( module Network.Api.Request
-  -- * Service
-  , module Network.Api.Service
-  -- * Header
-  , module Network.Api.Header
+  (
+    -- * Request
+    call
+  , Request(..)
+  , buildHttpRequest
+  , lookupMethod
+  , injectUrlParams
+
+    -- * Service
+  , Service(..)
+  , Method(..)
+  , HttpMethod(..)
+
+    -- * Header
+  , Field
+  , field
+  , getFieldName
+  , getFieldValue
+  , FieldName
+  , fieldName
+  , unFieldName
+  , FieldValue
+  , fieldValue
+  , unFieldValue
   ) where
 
 import           Network.Api.Header
 import           Network.Api.Request
 import           Network.Api.Service
+
