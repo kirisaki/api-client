@@ -14,6 +14,8 @@ module Network.Api.Header
     -- * Field of HTTP header
     Fields
   , fromList
+  , toList
+  , toList'
 
     -- * Header name
   , FieldName
@@ -36,6 +38,7 @@ import           Data.Char
 import           Data.Either
 import           Data.Hashable
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.List            as L
 import           Data.Text            as T
 import           Data.Text.Encoding
 
@@ -44,7 +47,8 @@ import           Data.Text.Encoding
 --   but this makes implements complecated, so treat field as unique in this module.
 type Fields = HM.HashMap FieldName FieldValue
 
--- | Make header field from pairs of key-value
+-- | Construct header fields with the supplied mappings.
+--   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both
 fromList :: [(T.Text, T.Text)] ->  Either Text Fields
 fromList kvs =
   HM.fromList <$> forM kvs (
@@ -55,6 +59,15 @@ fromList kvs =
       (Right _, Left _)    -> Left "invalid field value"
       (Right k', Right v') -> Right (k', v')
   )
+
+-- | Return a list of fields.
+toList :: Fields -> [(FieldName, FieldValue)]
+toList = HM.toList
+
+-- | Return a list of 'ByteString'-encoded fields.
+toList' :: Fields -> [(CI BSS.ByteString, BSS.ByteString)]
+toList' = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . toList
+
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName
   { unFieldName :: CI BSS.ByteString -- ^ Unwrap field name.

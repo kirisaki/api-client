@@ -6,10 +6,13 @@ import           Network.Api.Header
 import           Test.Hspec
 
 import           Data.Aeson
+import           Data.ByteString
 import           Data.CaseInsensitive
 import           Data.Either
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.List            as L
 import           Data.Text            (Text)
+import           Data.Text.Encoding
 
 -- Misc for aeson
 isError :: Result a -> Bool
@@ -31,6 +34,8 @@ spec :: Spec
 spec = do
   describe "Fields and JSON can convert mutal" specConvertFields
   describe "fromList" specFromList
+  describe "toList" specToList
+  describe "toList'" specToList'
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
@@ -74,6 +79,25 @@ specFromList = do
     [ ("every/thing", "間違っている")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field name and value"
+
+specToList :: Spec
+specToList =
+  it "normal case" $ do
+  let kvs =
+        L.sort [ (right $ fieldName "accept", right $ fieldValue "application/someservice+json")
+               , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
+               ]
+  (L.sort . toList $ HM.fromList kvs) `shouldBe` kvs
+
+specToList' :: Spec
+specToList' =
+  it "normal case" $ do
+  let kvs =
+        [ ("accept", "application/someservice+json")
+        , ("User-Agent", "Netscape Communicator")
+        ]
+  let kvs' = L.map (\(k, v) -> (mk $ encodeUtf8 k, encodeUtf8 v)) kvs
+  (L.sort . toList' . right $ fromList kvs) `shouldBe` L.sort kvs'
 
 specFieldName :: Spec
 specFieldName = do
