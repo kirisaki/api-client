@@ -29,24 +29,13 @@ left (Left a) = a
 
 spec :: Spec
 spec = do
-  describe "field" specField
+  describe "Fields and JSON can convert mutal" specConvertFields
   describe "fields" specFields
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
-specField :: Spec
-specField = do
-  it "normal case" $
-    field "Accept" "application/someservice+json" `shouldSatisfy` isRight
-  it "invalid field name" $
-    field "" "hoge" `shouldBe` Left "invalid field name"
-  it "invalid field content" $
-    field "User-Agent" "" `shouldBe` Left "invalid field value"
-  it "both are invalid" $
-    field "spam/egg" "あああ" `shouldBe` Left "invalid field name and value"
-
-specFields :: Spec
-specFields =
+specConvertFields :: Spec
+specConvertFields =
   let
     fields = HM.fromList
       [ (right $ fieldName "User-Agent", right $ fieldValue "Netscape Navigator")
@@ -58,6 +47,33 @@ specFields =
       encode fields `shouldBe` encoded
     it "JSON decode" $
       decode encoded `shouldBe` Just fields
+
+specFields :: Spec
+specFields = do
+  it "normal case" $
+    fields
+    [ ("Accept", "application/someservice+json")
+    , ("user-agent", "Netscape Communicator")
+    ] `shouldBe`
+    (Right $ HM.fromList
+    [ (right $ fieldName "accept", right $ fieldValue "application/someservice+json")
+    , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
+    ])
+  it "invalid field name" $
+    fields
+    [ ("Accept", "application/someservice+json")
+    , ("user/agent", "Netscape Communicator")
+    ] `shouldBe` Left "invalid field name"
+  it "invalid field value" $
+    fields
+    [ ("Accept", "なんらか")
+    , ("user-agent", "Netscape Communicator")
+    ] `shouldBe` Left "invalid field value"
+  it "both are invalid sametime" $
+    fields
+    [ ("every/thing", "間違っている")
+    , ("user-agent", "Netscape Communicator")
+    ] `shouldBe` Left "invalid field name and value"
 
 specFieldName :: Spec
 specFieldName = do

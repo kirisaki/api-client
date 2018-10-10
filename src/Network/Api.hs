@@ -22,10 +22,8 @@ module Network.Api
   , HttpMethod(..)
 
     -- * Header
-  , Field
-  , field
-  , getFieldName
-  , getFieldValue
+  , Fields
+  , fields
   , FieldName
   , fieldName
   , unFieldName

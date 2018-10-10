@@ -12,11 +12,8 @@
 module Network.Api.Header
   (
     -- * Field of HTTP header
-    Field
-  , Fields
-  , field
-  , getFieldName
-  , getFieldValue
+    Fields
+  , fields
 
     -- * Header name
   , FieldName
@@ -29,6 +26,7 @@ module Network.Api.Header
   , unFieldValue
   ) where
 
+import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Encoding  (text)
 import           Data.Attoparsec.Text as A
@@ -37,29 +35,26 @@ import           Data.CaseInsensitive (CI, mk, original)
 import           Data.Char
 import           Data.Either
 import           Data.Hashable
-import           Data.HashMap.Strict
+import           Data.HashMap.Strict  as HM
 import           Data.Text            as T
 import           Data.Text.Encoding
 
--- | Field of HTTP header.
-data Field = Field { getFieldName  :: FieldName
-                   , getFieldValue :: FieldValue
-                   } deriving (Show, Eq, Ord)
-
--- | Collection of fields.
+-- | Collection of HTTP header fields.
 --   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
 --   but this makes implements complecated, so treat field as unique in this module.
 type Fields = HashMap FieldName FieldValue
 
 -- | Make header field from 'Text'
-field :: T.Text -> T.Text -> Either Text Field
-field name value =
-  case (fieldName name, fieldValue value) of
-    (Left _, Left _)   -> Left "invalid field name and value"
-    (Left _, Right _)  -> Left "invalid field name"
-    (Right _, Left _)  -> Left "invalid field value"
-    (Right n, Right v) -> Right $ Field n v
-
+fields :: [(T.Text, T.Text)] ->  Either Text Fields
+fields kvs =
+  HM.fromList <$> forM kvs (
+  \(k, v) ->
+    case (fieldName k, fieldValue v) of
+      (Left _, Left _)     -> Left "invalid field name and value"
+      (Left _, Right _)    -> Left "invalid field name"
+      (Right _, Left _)    -> Left "invalid field value"
+      (Right k', Right v') -> Right (k', v')
+  )
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName
   { unFieldName :: CI BSS.ByteString -- ^ Unwrap field name.
