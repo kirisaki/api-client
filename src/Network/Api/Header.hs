@@ -7,7 +7,6 @@
 -- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
 --
 -----------------------------------------------------------------------------
-{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE OverloadedStrings  #-}
 module Network.Api.Header
   ( Field
@@ -38,7 +37,7 @@ data Field = Field { getFieldName :: FieldName
                                } deriving (Show, Eq, Ord)
 
 instance ToJSON Field where
-  toJSON (Field (FieldName name) (FieldValue value)) = object [ (decodeUtf8 $ original name) .= (decodeUtf8 value) ]
+  toJSON (Field (FieldName name) (FieldValue value)) = object [ decodeUtf8 (original name) .= decodeUtf8 value ]
 
 -- | Make header field from 'Text'
 field :: T.Text -> T.Text -> Either Text Field
@@ -79,7 +78,7 @@ fieldName t =
     case feed (parse p t) "" of
       Done "" n -> Right . FieldName . mk $ encodeUtf8 n
       Done _ _ -> Left "included invalid a character character"
-      Fail _ _ _ -> Left "included invalid a character character"
+      Fail {} -> Left "included invalid a character character"
       Partial _ -> Left "lack input"
 
 -- | A field value of a HTTP header.
@@ -103,5 +102,5 @@ fieldValue t =
     case feed (parse p t) "" of
       Done "" n -> Right . FieldValue $ encodeUtf8 n
       Done _ _ -> Left "included invalid a character character"
-      Fail _ _ _ -> Left "included invalid a character character"
+      Fail {} -> Left "included invalid a character character"
       Partial _ -> Left "lack input"

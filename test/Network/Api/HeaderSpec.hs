@@ -45,13 +45,13 @@ specFieldName = do
   it "include non-ASCII character" $
     fieldName "にゃーん" `shouldSatisfy` isLeft
 
-  context "use Data.Aeson.toJSON" $ do
+  context "use Data.Aeson.toJSON" $
     it "normal case" $
-      (encode $ HM.fromList [(fromRight undefined $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
+    encode (HM.fromList [(fromRight undefined $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
 
-  context "use Data.Aeson.fromJSON" $ do
-    it "normal case" $
-      pending
+  context "use Data.Aeson.fromJSON" $
+    it "normal case"
+    pending
 
 specFieldValue :: Spec
 specFieldValue = do
