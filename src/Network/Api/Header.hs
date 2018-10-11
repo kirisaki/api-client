@@ -72,12 +72,12 @@ instance Hashable FieldName where
   hashWithSalt i = hashWithSalt i . unFieldName
 
 instance ToJSON FieldName where
-  toJSON (FieldName n) = String . decodeUtf8 $ original n
+  toJSON = String . decodeUtf8 . original . unFieldName
 
 instance ToJSONKey FieldName where
   toJSONKey = ToJSONKeyText f g
     where
-      f (FieldName n) = decodeUtf8 $ original n
+      f = decodeUtf8 . original . unFieldName
       g = text . f
 
 instance FromJSON FieldName where
