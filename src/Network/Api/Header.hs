@@ -138,9 +138,11 @@ fieldValue :: BSS.ByteString -> Either Text FieldValue
 fieldValue t =
   let
     p = BSS.cons <$> A.satisfy isPrint <*> A.takeWhile isValue
-    isValue c = isPrint c ||
-                c == _tab ||
-                c == _space
+    isValue c =
+      isAscii c &&
+      ( isPrint c ||
+      c == _tab ||
+      c == _space )
   in
     case feed (parse p t) "" of
       Done "" n -> (Right . FieldValue) n

@@ -143,18 +143,21 @@ instance Arbitrary FieldValue where
   arbitrary = fmap (right . fieldValue) fieldContent
     where
       fieldContent = fmap BSS.pack $ (:) <$> vchar <*> listOf vchar'
-      vchar = arbitrary `suchThat` isPrint
+      vchar = arbitrary `suchThat` (\c -> isAscii c && isPrint c)
       vchar' = arbitrary `suchThat`
-        (\c -> isPrint c ||
+        (\c -> isAscii c &&
+               ( isPrint c ||
                c == _tab ||
-               c == _space
+               c == _space )
         )
   shrink = L.map (right . fieldValue . BSS.pack) .
     L.filter (\s ->
                 not (L.null s) &&
-                all (\c -> isPrint c  ||
-                      c == _tab ||
-                      c == _space
+                all (\c ->
+                       isAscii c &&
+                       ( isPrint c  ||
+                       c == _tab ||
+                       c == _space )
                     ) s
              )
     . shrink . BSS.unpack . unFieldValue
