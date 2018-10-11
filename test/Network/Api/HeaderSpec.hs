@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Network.Api.HeaderSpec where
 
@@ -50,6 +52,10 @@ instance Arbitrary FieldValue where
         )
   shrink = fmap (right . fieldValue . BSS.pack) .
     shrink . BSS.unpack . unFieldValue
+
+instance Arbitrary Header where
+  arbitrary = fmap HM.fromList (listOf ((,) <$> arbitrary <*> arbitrary))
+  shrink = fmap HM.fromList . shrink . HM.toList
 
 specConvertHeader :: Spec
 specConvertHeader =
