@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 149549936ab60c08a0beeed9ebe861ee8ca8916240d5d32ec411efa69467dd3b
+-- hash: ae26066391c2dc5fc838aa2d49b61f92f0ad413cb719389058bb7c1984a8a001
 
 name:           api-client
 version:        0.0.1
@@ -58,6 +58,7 @@ test-suite api-client-test
   main-is: Spec.hs
   other-modules:
       Network.Api.HeaderSpec
+      Network.Api.QuerySpec
       Network.Api.RequestSpec
       TestUtils
       Paths_api_client
@@ -65,7 +66,8 @@ test-suite api-client-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , api-client
     , attoparsec
     , base

@@ -31,12 +31,11 @@ newtype UrlEncoded = UrlEncoded
   }
 
 -- | Encode utf-8 text to URI encoded bytestrings.
---   It doesn't convert ' ' to '+'
+--   It converts '='
 urlEncode :: T.Text -> UrlEncoded
-urlEncode = UrlEncoded . U.urlEncode False . encodeUtf8
+urlEncode = UrlEncoded . U.urlEncode True . encodeUtf8
 
 -- | Decode URI encoded bytestrings to utf-8 text.
---   It doesn't convert '+' to ' '
 urlDecode :: UrlEncoded -> T.Text
 urlDecode = decodeUtf8 . U.urlDecode True . unUrlEncoded
 

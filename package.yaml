@@ -45,6 +45,7 @@ tests:
     - base
     - hspec
     - api-client
+    - QuickCheck
     - servant
     - servant-server
     - warp
