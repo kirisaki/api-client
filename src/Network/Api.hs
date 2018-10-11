@@ -25,7 +25,6 @@ module Network.Api
   , Header
   , toHeader
   , fromHeader
-  , fromHeader'
   , FieldName
   , fieldName
   , unFieldName

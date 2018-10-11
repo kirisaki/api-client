@@ -10,33 +10,25 @@
 --
 -----------------------------------------------------------------------------
 module Network.Api.Query
-  (
-    -- * Field of HTTP header
-    Query
-  , toQuery
-  , fromQuery
-
-    -- * Query key
-  , QueryKey
-  , queryKey
-  , unQueryKey
-
-    -- * Query value
-  , QueryValue
-  , queryValue
-  , unQueryValue
+  ( Query
   ) where
 
+import Data.HashMap.Strict as HM
+import qualified Data.ByteString as BSS
 import qualified Data.Text as T
+import Network.HTTP.Types.URI hiding (Query)
 
-data Query
-toQuery = undefined
-fromQuery = undefined
+-- | Collection of URL query parameters.
+--   Behaviour when duplicated query keys at URL is not defined,
+--   but this makes implements complecated, so treat keys as unique in this module.
 
-data QueryKey = QueryKey { unQueryKey :: T.Text }
-queryKey = undefined
+type Query = HM.HashMap URIEncoded (Maybe URIEncoded)
 
+type URIEncoded = BSS.ByteString
 
-data QueryValue = Queryalue { unQueryValue :: T.Text }
-queryValue = undefined
+toQuery :: [(T.Text, Maybe T.Text)] -> Query
+toQuery kvs = undefined
+
+toQuery' :: [(T.Text, T.Text)] -> Query
+toQuery' kvs = undefined
 

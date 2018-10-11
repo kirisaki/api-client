@@ -20,7 +20,6 @@ spec = do
   describe "Fields and JSON can convert mutal" specConvertHeader
   describe "toHeader" specToHeader
   describe "fromHeader" specFromHeader
-  describe "fromHeader'" specFromHeader'
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
@@ -69,20 +68,11 @@ specFromHeader :: Spec
 specFromHeader =
   it "normal case" $ do
   let kvs =
-        L.sort [ (right $ fieldName "accept", right $ fieldValue "application/someservice+json")
-               , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
-               ]
-  (L.sort . fromHeader $ HM.fromList kvs) `shouldBe` kvs
-
-specFromHeader' :: Spec
-specFromHeader' =
-  it "normal case" $ do
-  let kvs =
         [ ("accept", "application/someservice+json")
         , ("User-Agent", "Netscape Communicator")
         ]
   let kvs' = L.map (\(k, v) -> (mk $ encodeUtf8 k, encodeUtf8 v)) kvs
-  (L.sort . fromHeader' . right $ toHeader kvs) `shouldBe` L.sort kvs'
+  (L.sort . fromHeader . right $ toHeader kvs) `shouldBe` L.sort kvs'
 
 specFieldName :: Spec
 specFieldName = do

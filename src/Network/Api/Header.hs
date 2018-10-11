@@ -15,7 +15,6 @@ module Network.Api.Header
     Header
   , toHeader
   , fromHeader
-  , fromHeader'
 
     -- * Header name
   , FieldName
@@ -60,13 +59,9 @@ toHeader kvs =
       (Right k', Right v') -> Right (k', v')
   )
 
--- | Return a list of fields.
-fromHeader :: Header -> [(FieldName, FieldValue)]
-fromHeader = HM.toList
-
 -- | Return a list of 'ByteString'-encoded fields.
-fromHeader' :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
-fromHeader' = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . fromHeader
+fromHeader :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
+fromHeader = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . HM.toList
 
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName
