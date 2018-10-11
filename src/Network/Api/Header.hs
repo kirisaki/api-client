@@ -14,7 +14,9 @@ module Network.Api.Header
     -- * Field of HTTP header
     Header
   , toHeader
+  , toHeader'
   , fromHeader
+  , fromHeader'
 
     -- * Header name
   , FieldName
@@ -60,9 +62,17 @@ toHeader kvs =
       (Right k', Right v') -> Right (k', v')
   )
 
+-- | 'Text' arguments version of 'toHeader'
+toHeader' :: [(T.Text, T.Text)] -> Either Text Header
+toHeader' = toHeader . L.map (\(k, v) -> (encodeUtf8 k, encodeUtf8 v))
+
 -- | Return a list of 'ByteString'-encoded fields.
 fromHeader :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
 fromHeader = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . HM.toList
+
+-- | 'Text' arguments version of 'fromHeader'
+fromHeader' :: Header ->  [(T.Text, T.Text)]
+fromHeader' = L.map (\(k, v) -> (decodeUtf8 $ original k, decodeUtf8 v)) . fromHeader
 
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName
