@@ -69,7 +69,7 @@ newtype FieldName = FieldName
   } deriving(Show, Eq, Ord)
 
 instance Hashable FieldName where
-  hashWithSalt i (FieldName n) = hashWithSalt i n
+  hashWithSalt i = hashWithSalt i . unFieldName
 
 instance ToJSON FieldName where
   toJSON (FieldName n) = String . decodeUtf8 $ original n
