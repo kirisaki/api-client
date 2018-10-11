@@ -31,12 +31,25 @@ spec = do
 instance Arbitrary FieldName where
   arbitrary = fmap (right . fieldName) token
     where
-      token = fmap BSS.pack (listOf tchar)
+      token = fmap BSS.pack (listOf1 tchar)
       tchar = arbitrary `suchThat`
         (\c -> isAlphaNum c ||
                L.elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~"))
   shrink = fmap (right . fieldName . BSS.pack) .
     shrink . BSS.unpack . original . unFieldName
+
+instance Arbitrary FieldValue where
+  arbitrary = fmap (right . fieldValue) fieldContent
+    where
+      fieldContent = fmap BSS.pack $ (:) <$> vchar <*> listOf vchar'
+      vchar = arbitrary `suchThat` isPrint
+      vchar' = arbitrary `suchThat`
+        (\c -> isPrint c ||
+               c == _tab ||
+               c == _space
+        )
+  shrink = fmap (right . fieldValue . BSS.pack) .
+    shrink . BSS.unpack . unFieldValue
 
 specConvertHeader :: Spec
 specConvertHeader =
