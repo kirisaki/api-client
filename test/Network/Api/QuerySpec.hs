@@ -8,6 +8,7 @@ import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 import           TestUtils
 
+import           Data.Aeson
 import           Data.ByteString
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
@@ -15,24 +16,21 @@ import qualified Data.Text             as T
 import           Data.Text.Encoding
 
 spec :: Spec
-spec = do
-  describe "Query and JSON can convert mutal" specConvertQueryJSON
-  describe "Convert UrlEncoded and Text each other" specUrlEncoded
-  describe "Convert key-value pairs and Query each other" specConvertQueryList
+spec =
+  describe "Query function props" $ do
 
-specConvertQueryJSON :: Spec
-specConvertQueryJSON = do
-  it "normal case"
-    pending
-  it "include Nothing"
-    pending
+  prop "toJSON/fromJSON for Query" $
+    \kvs -> L.sort kvs ==
+    (L.sort . unpack' . fromQuery . success . fromJSON . toJSON . toQuery . pack') kvs
 
-specUrlEncoded :: Spec
-specUrlEncoded =
-  prop "Encode text then decode, it should back the original" $
+  prop " urlEncode/urlDecode" $
     \t -> t == (T.unpack . urlDecode . urlEncode . T.pack) t
 
-specConvertQueryList :: Spec
-specConvertQueryList =
-  it ""
-    pending
+  prop "toQuery/fromQuery" $
+    \kvs -> L.sort kvs ==
+    (L.sort . unpack' . fromQuery . toQuery . pack') kvs
+
+  where
+    apply f (k, v) = (f k, fmap f v)
+    pack' = L.map (apply T.pack)
+    unpack' = L.map (apply T.unpack)

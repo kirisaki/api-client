@@ -10,11 +10,17 @@
 -----------------------------------------------------------------------------
 module Network.Api.Query
   ( Query
+  , toQuery
+  , toQuery'
+  , fromQuery
+  , UrlEncoded
   , urlEncode
   , urlDecode
   ) where
 
+import           Data.Aeson
 import qualified Data.ByteString        as BSS
+import           Data.Hashable
 import           Data.HashMap.Strict    as HM
 import qualified Data.Text              as T
 import           Data.Text.Encoding
@@ -28,7 +34,22 @@ type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
 -- | URIEncoded 'ByteString'
 newtype UrlEncoded = UrlEncoded
   { unUrlEncoded :: BSS.ByteString -- ^ Unwrap encoded string.
-  }
+  } deriving (Eq, Show, Ord)
+
+instance Hashable UrlEncoded where
+  hashWithSalt i = hashWithSalt i . unUrlEncoded
+
+instance ToJSON UrlEncoded where
+  toJSON = undefined
+
+instance ToJSONKey UrlEncoded where
+  toJSONKey = undefined
+
+instance FromJSON UrlEncoded where
+  parseJSON = undefined
+
+instance FromJSONKey UrlEncoded where
+  fromJSONKey = undefined
 
 -- | Encode utf-8 text to URI encoded bytestrings.
 --   It converts '='
@@ -45,3 +66,5 @@ toQuery kvs = undefined
 toQuery' :: [(T.Text, T.Text)] -> Query
 toQuery' kvs = undefined
 
+fromQuery :: Query -> [(T.Text, Maybe T.Text)]
+fromQuery kvs = undefined
