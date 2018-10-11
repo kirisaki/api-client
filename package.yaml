@@ -29,6 +29,7 @@ dependencies:
 - text
 - time
 - unordered-containers
+- word8
 
 library:
   source-dirs: src

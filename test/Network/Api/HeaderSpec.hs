@@ -9,14 +9,15 @@ import           Test.QuickCheck
 import           TestUtils
 
 import           Data.Aeson            as AE
-import           Data.ByteString
+import qualified Data.ByteString       as BSS
 import           Data.CaseInsensitive
-import           Data.Char
+import           Data.Char             (ord)
 import           Data.Either
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
 import qualified Data.Text             as T
 import           Data.Text.Encoding
+import           Data.Word8
 
 spec :: Spec
 spec = do
@@ -26,20 +27,16 @@ spec = do
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
--- Definitions of strings allowed to use in HTTP header.
--- See RFC7230.
-
-newtype Token = Token { unToken :: T.Text }
-  deriving (Eq, Ord, Show)
-
-instance Arbitrary Token where
-  arbitrary = (Token . T.pack) `fmap` listOf arbitraryTchar
+-- For QuickCheck.
+instance Arbitrary FieldName where
+  arbitrary = fmap (right . fieldName) token
     where
-      arbitraryTchar = arbitrary `suchThat`
-        (\c -> isAscii c &&
-               isAlphaNum c ||
-               L.elem c ("!#$%&'*+-.^_`|~" :: String))
-  shrink = fmap (Token . T.pack) . shrink . T.unpack . unToken
+      token = fmap BSS.pack (listOf tchar)
+      tchar = arbitrary `suchThat`
+        (\c -> isAlphaNum c ||
+               L.elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~"))
+  shrink = fmap (right . fieldName . BSS.pack) .
+    shrink . BSS.unpack . original . unFieldName
 
 specConvertHeader :: Spec
 specConvertHeader =
@@ -89,7 +86,7 @@ specFromHeader =
         [ ("accept", "application/someservice+json")
         , ("User-Agent", "Netscape Communicator")
         ]
-  let kvs' = L.map (\(k, v) -> (mk $ encodeUtf8 k, encodeUtf8 v)) kvs
+  let kvs' = L.map (\(k, v) -> (mk k, v)) kvs
   (L.sort . fromHeader . right $ toHeader kvs) `shouldBe` L.sort kvs'
 
 specFieldName :: Spec

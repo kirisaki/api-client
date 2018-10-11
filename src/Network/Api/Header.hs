@@ -29,17 +29,18 @@ module Network.Api.Header
 
 import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Encoding  (text)
-import           Data.Attoparsec.Text as A
-import qualified Data.ByteString      as BSS
-import           Data.CaseInsensitive (CI, mk, original)
-import           Data.Char
+import           Data.Aeson.Encoding        (text)
+import           Data.Attoparsec.ByteString as A
+import qualified Data.ByteString            as BSS
+import           Data.CaseInsensitive       (CI, mk, original)
+import           Data.Char                  (ord)
 import           Data.Either
 import           Data.Hashable
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.List            as L
-import           Data.Text            as T
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.List                  as L
+import           Data.Text                  as T
 import           Data.Text.Encoding
+import           Data.Word8
 
 -- | Collection of HTTP header fields.
 --   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
@@ -48,7 +49,7 @@ type Header = HM.HashMap FieldName FieldValue
 
 -- | Construct header fields with the supplied mappings.
 --   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both
-toHeader :: [(T.Text, T.Text)] ->  Either Text Header
+toHeader :: [(BSS.ByteString, BSS.ByteString)] ->  Either Text Header
 toHeader kvs =
   HM.fromList <$> forM kvs (
   \(k, v) ->
@@ -82,25 +83,27 @@ instance ToJSONKey FieldName where
 
 instance FromJSON FieldName where
   parseJSON = withText "FieldName" $
-    \t -> case fieldName t of
+    \t -> case fieldName $ encodeUtf8 t of
       Right n -> return n
       Left e  -> fail $ T.unpack e
 
 instance FromJSONKey FieldName where
   fromJSONKey = FromJSONKeyTextParser f
     where
-      f = either (fail . T.unpack) return . fieldName
+      f = either (fail . T.unpack) return . fieldName . encodeUtf8
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
-fieldName :: Text -> Either Text FieldName
+fieldName :: BSS.ByteString -> Either Text FieldName
 fieldName t =
   let
-    p = A.takeWhile1 (\c -> isAscii c &&
-                            isAlphaNum c ||
-                            elem c ("!#$%&'*+-.^_`|~" :: String))
+    p = A.takeWhile1
+      (\c ->
+         isAlphaNum c ||
+         elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~")
+      )
   in
     case feed (parse p t) "" of
-      Done "" n -> Right . FieldName . mk $ encodeUtf8 n
+      Done "" n -> Right . FieldName $ mk n
       Done _ _  -> Left "included invalid a character character"
       Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"
@@ -115,18 +118,18 @@ instance ToJSON FieldValue where
 
 instance FromJSON FieldValue where
   parseJSON = withText "FieldValue" $
-    \t -> case fieldValue t of
+    \t -> case fieldValue $ encodeUtf8 t of
       Right n -> return n
       Left e  -> fail $ T.unpack e
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
-fieldValue :: Text -> Either Text FieldValue
+fieldValue :: BSS.ByteString -> Either Text FieldValue
 fieldValue t =
   let
     p = A.takeWhile1 (\c -> isAscii c && isPrint c)
   in
     case feed (parse p t) "" of
-      Done "" n -> Right . FieldValue $ encodeUtf8 n
+      Done "" n -> Right $ FieldValue n
       Done _ _  -> Left "included invalid a character character"
       Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"

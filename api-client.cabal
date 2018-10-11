@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ae26066391c2dc5fc838aa2d49b61f92f0ad413cb719389058bb7c1984a8a001
+-- hash: f4c13ff3c1c16e28ada9b131d17504b6a5297850a895e96ec09314490bfcc224
 
 name:           api-client
 version:        0.0.1
@@ -51,6 +51,7 @@ library
     , text
     , time
     , unordered-containers
+    , word8
   default-language: Haskell2010
 
 test-suite api-client-test
@@ -85,4 +86,5 @@ test-suite api-client-test
     , time
     , unordered-containers
     , warp
+    , word8
   default-language: Haskell2010
