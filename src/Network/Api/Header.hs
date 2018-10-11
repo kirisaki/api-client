@@ -95,7 +95,9 @@ instance FromJSONKey FieldName where
 fieldName :: Text -> Either Text FieldName
 fieldName t =
   let
-    p = A.takeWhile1 (\c -> isAscii c && isAlphaNum c || elem c ("!#$%&'*+-.^_`|~" :: String))
+    p = A.takeWhile1 (\c -> isAscii c &&
+                            isAlphaNum c ||
+                            elem c ("!#$%&'*+-.^_`|~" :: String))
   in
     case feed (parse p t) "" of
       Done "" n -> Right . FieldName . mk $ encodeUtf8 n

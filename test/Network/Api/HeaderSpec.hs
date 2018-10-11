@@ -4,15 +4,18 @@ module Network.Api.HeaderSpec where
 
 import           Network.Api.Header
 import           Test.Hspec
+import           Test.Hspec.QuickCheck
+import           Test.QuickCheck
 import           TestUtils
 
-import           Data.Aeson
+import           Data.Aeson            as AE
 import           Data.ByteString
 import           Data.CaseInsensitive
+import           Data.Char
 import           Data.Either
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.List            as L
-import           Data.Text            (Text)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List             as L
+import qualified Data.Text             as T
 import           Data.Text.Encoding
 
 spec :: Spec
@@ -22,6 +25,21 @@ spec = do
   describe "fromHeader" specFromHeader
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
+
+-- Definitions of strings allowed to use in HTTP header.
+-- See RFC7230.
+
+newtype Token = Token { unToken :: T.Text }
+  deriving (Eq, Ord, Show)
+
+instance Arbitrary Token where
+  arbitrary = (Token . T.pack) `fmap` listOf arbitraryTchar
+    where
+      arbitraryTchar = arbitrary `suchThat`
+        (\c -> isAscii c &&
+               isAlphaNum c ||
+               L.elem c ("!#$%&'*+-.^_`|~" :: String))
+  shrink = fmap (Token . T.pack) . shrink . T.unpack . unToken
 
 specConvertHeader :: Spec
 specConvertHeader =
@@ -94,9 +112,9 @@ specFieldName = do
     fieldName "にゃーん" `shouldSatisfy` isLeft
 
   it "encode key" $
-    encode (HM.fromList [(right $ fieldName "hogehoge", "fuga" :: Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
+    encode (HM.fromList [(right $ fieldName "hogehoge", "fuga" :: T.Text)]) `shouldBe` "{\"hogehoge\":\"fuga\"}"
   it "decode key" $
-    (decode "{\"hogehoge\":\"fuga\"}" :: Maybe (HM.HashMap FieldName Text))
+    (decode "{\"hogehoge\":\"fuga\"}" :: Maybe (HM.HashMap FieldName T.Text))
     `shouldBe` (Just $ HM.fromList [(right $ fieldName "hogehoge", "fuga")])
 
 specFieldValue :: Spec
@@ -124,6 +142,6 @@ specFieldValue = do
 
   context "use Data.Aeson.fromJSON" $ do
     it "normal case" $
-      fromJSON "some text" `shouldBe` Success (fromRight undefined $ fieldValue "some text")
+      fromJSON "some text" `shouldBe` AE.Success (fromRight undefined $ fieldValue "some text")
     it "invalid value" $
-      (fromJSON "あああ" :: Result FieldValue) `shouldSatisfy` isError
+      (fromJSON "あああ" :: AE.Result FieldValue) `shouldSatisfy` isError
