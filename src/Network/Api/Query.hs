@@ -19,9 +19,11 @@ module Network.Api.Query
   ) where
 
 import           Data.Aeson
+import           Data.Aeson.Encoding    (text)
 import qualified Data.ByteString        as BSS
 import           Data.Hashable
 import           Data.HashMap.Strict    as HM
+import qualified Data.List              as L
 import qualified Data.Text              as T
 import           Data.Text.Encoding
 import qualified Network.HTTP.Types.URI as U
@@ -40,16 +42,19 @@ instance Hashable UrlEncoded where
   hashWithSalt i = hashWithSalt i . unUrlEncoded
 
 instance ToJSON UrlEncoded where
-  toJSON = undefined
+  toJSON = String . urlDecode
 
 instance ToJSONKey UrlEncoded where
-  toJSONKey = undefined
+  toJSONKey = ToJSONKeyText f g
+    where
+      f = urlDecode
+      g = text . f
 
 instance FromJSON UrlEncoded where
-  parseJSON = undefined
+  parseJSON = withText "UrlEncoded" (return . urlEncode)
 
 instance FromJSONKey UrlEncoded where
-  fromJSONKey = undefined
+  fromJSONKey = FromJSONKeyTextParser (return . urlEncode)
 
 -- | Encode utf-8 text to URI encoded bytestrings.
 --   It converts '='
@@ -61,10 +66,10 @@ urlDecode :: UrlEncoded -> T.Text
 urlDecode = decodeUtf8 . U.urlDecode True . unUrlEncoded
 
 toQuery :: [(T.Text, Maybe T.Text)] -> Query
-toQuery kvs = undefined
+toQuery = HM.fromList . L.map (\(k, v) -> (urlEncode k, urlEncode <$> v))
 
 toQuery' :: [(T.Text, T.Text)] -> Query
-toQuery' kvs = undefined
+toQuery' = HM.fromList . L.map (\(k, v) -> (urlEncode k, Just (urlEncode v)))
 
 fromQuery :: Query -> [(T.Text, Maybe T.Text)]
-fromQuery kvs = undefined
+fromQuery = L.map (\(k, v) -> (urlDecode k, urlDecode <$> v)) . HM.toList

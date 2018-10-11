@@ -20,15 +20,16 @@ spec =
   describe "Query function props" $ do
 
   prop "toJSON/fromJSON for Query" $
-    \kvs -> L.sort kvs ==
-    (L.sort . unpack' . fromQuery . success . fromJSON . toJSON . toQuery . pack') kvs
+    \kvs -> (HM.fromList . L.sort) kvs ==
+    (HM.fromList . L.sort . unpack' . fromQuery .
+     success . fromJSON . toJSON . toQuery . pack' . L.sort) kvs
 
   prop " urlEncode/urlDecode" $
     \t -> t == (T.unpack . urlDecode . urlEncode . T.pack) t
 
   prop "toQuery/fromQuery" $
-    \kvs -> L.sort kvs ==
-    (L.sort . unpack' . fromQuery . toQuery . pack') kvs
+    \kvs -> (HM.fromList . L.sort) kvs ==
+    (HM.fromList . L.sort . unpack' . fromQuery . toQuery . pack' . L.sort) kvs
 
   where
     apply f (k, v) = (f k, fmap f v)
