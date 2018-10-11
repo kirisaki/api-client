@@ -100,6 +100,8 @@ specFieldName = do
 
 specFieldValue :: Spec
 specFieldValue = do
+  prop "prop of FieldValue" $
+    \v -> Right v == (fieldValue . unFieldValue) v
   it "normal case" $
     fieldValue "Netscape" `shouldSatisfy` isRight
   it "include space" $
@@ -148,7 +150,14 @@ instance Arbitrary FieldValue where
                c == _space
         )
   shrink = L.map (right . fieldValue . BSS.pack) .
-    L.filter (not . L.null) . shrink . BSS.unpack . unFieldValue
+    L.filter (\s ->
+                not (L.null s) &&
+                all (\c -> isPrint c  ||
+                      c == _tab ||
+                      c == _space
+                    ) s
+             )
+    . shrink . BSS.unpack . unFieldValue
 
 instance Arbitrary Header where
   arbitrary = fmap HM.fromList (listOf ((,) <$> arbitrary <*> arbitrary))
