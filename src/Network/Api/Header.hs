@@ -2,7 +2,7 @@
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Network.Api
+-- Module      :  Network.Api.Header
 -- Copyright   :  (c) Akihito KIRISAKI 2018
 -- License     :  BSD3
 --
@@ -12,10 +12,10 @@
 module Network.Api.Header
   (
     -- * Field of HTTP header
-    Fields
-  , fromList
-  , toList
-  , toList'
+    Header
+  , toHeader
+  , fromHeader
+  , fromHeader'
 
     -- * Header name
   , FieldName
@@ -45,12 +45,12 @@ import           Data.Text.Encoding
 -- | Collection of HTTP header fields.
 --   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
 --   but this makes implements complecated, so treat field as unique in this module.
-type Fields = HM.HashMap FieldName FieldValue
+type Header = HM.HashMap FieldName FieldValue
 
 -- | Construct header fields with the supplied mappings.
 --   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both
-fromList :: [(T.Text, T.Text)] ->  Either Text Fields
-fromList kvs =
+toHeader :: [(T.Text, T.Text)] ->  Either Text Header
+toHeader kvs =
   HM.fromList <$> forM kvs (
   \(k, v) ->
     case (fieldName k, fieldValue v) of
@@ -61,12 +61,12 @@ fromList kvs =
   )
 
 -- | Return a list of fields.
-toList :: Fields -> [(FieldName, FieldValue)]
-toList = HM.toList
+fromHeader :: Header -> [(FieldName, FieldValue)]
+fromHeader = HM.toList
 
 -- | Return a list of 'ByteString'-encoded fields.
-toList' :: Fields -> [(CI BSS.ByteString, BSS.ByteString)]
-toList' = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . toList
+fromHeader' :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
+fromHeader' = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . fromHeader
 
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName

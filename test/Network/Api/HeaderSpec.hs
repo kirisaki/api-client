@@ -17,20 +17,20 @@ import           Data.Text.Encoding
 
 spec :: Spec
 spec = do
-  describe "Fields and JSON can convert mutal" specConvertFields
-  describe "fromList" specFromList
-  describe "toList" specToList
-  describe "toList'" specToList'
+  describe "Fields and JSON can convert mutal" specConvertHeader
+  describe "toHeader" specToHeader
+  describe "fromHeader" specFromHeader
+  describe "fromHeader'" specFromHeader'
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
-specConvertFields :: Spec
-specConvertFields =
+specConvertHeader :: Spec
+specConvertHeader =
   let
     fields = HM.fromList
       [ (right $ fieldName "User-Agent", right $ fieldValue "Netscape Navigator")
       , (right $ fieldName "Accept", right $ fieldValue "application/json")
-      ] :: Fields
+      ] :: Header
     encoded = "{\"User-Agent\":\"Netscape Navigator\",\"Accept\":\"application/json\"}"
   in do
     it "JSON encode" $
@@ -38,10 +38,10 @@ specConvertFields =
     it "JSON decode" $
       decode encoded `shouldBe` Just fields
 
-specFromList :: Spec
-specFromList = do
+specToHeader :: Spec
+specToHeader = do
   it "normal case" $
-    fromList
+    toHeader
     [ ("Accept", "application/someservice+json")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe`
@@ -50,39 +50,39 @@ specFromList = do
     , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
     ])
   it "invalid field name" $
-    fromList
+    toHeader
     [ ("Accept", "application/someservice+json")
     , ("user/agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field name"
   it "invalid field value" $
-    fromList
+    toHeader
     [ ("Accept", "なんらか")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field value"
   it "both are invalid sametime" $
-    fromList
+    toHeader
     [ ("every/thing", "間違っている")
     , ("user-agent", "Netscape Communicator")
     ] `shouldBe` Left "invalid field name and value"
 
-specToList :: Spec
-specToList =
+specFromHeader :: Spec
+specFromHeader =
   it "normal case" $ do
   let kvs =
         L.sort [ (right $ fieldName "accept", right $ fieldValue "application/someservice+json")
                , (right $ fieldName "User-Agent", right $ fieldValue "Netscape Communicator")
                ]
-  (L.sort . toList $ HM.fromList kvs) `shouldBe` kvs
+  (L.sort . fromHeader $ HM.fromList kvs) `shouldBe` kvs
 
-specToList' :: Spec
-specToList' =
+specFromHeader' :: Spec
+specFromHeader' =
   it "normal case" $ do
   let kvs =
         [ ("accept", "application/someservice+json")
         , ("User-Agent", "Netscape Communicator")
         ]
   let kvs' = L.map (\(k, v) -> (mk $ encodeUtf8 k, encodeUtf8 v)) kvs
-  (L.sort . toList' . right $ fromList kvs) `shouldBe` L.sort kvs'
+  (L.sort . fromHeader' . right $ toHeader kvs) `shouldBe` L.sort kvs'
 
 specFieldName :: Spec
 specFieldName = do

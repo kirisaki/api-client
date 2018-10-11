@@ -2,7 +2,7 @@
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Network.Api
+-- Module      :  Network.Api.Service
 -- Copyright   :  (c) Akihito KIRISAKI 2018
 -- License     :  BSD3
 --
@@ -26,7 +26,7 @@ import           GHC.Generics
 data Service = Service
   { baseUrl           :: Text
   , methods           :: [Method]
-  , defaultHeader     :: Fields
+  , defaultHeader     :: Header
   , tokenHeaderName   :: Maybe FieldName
   , tokenHeaderPrefix :: Maybe FieldValue
   , tokenQueryName    :: Maybe Text

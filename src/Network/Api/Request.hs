@@ -3,7 +3,7 @@
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Network.Api
+-- Module      :  Network.Api.Request
 -- Copyright   :  (c) Akihito KIRISAKI 2018
 -- License     :  BSD3
 --
@@ -41,6 +41,7 @@ import           Data.Time.Clock
 import           Data.Typeable           (Typeable)
 import           GHC.Generics
 import qualified Network.HTTP.Client     as C
+import           Network.HTTP.Types (Status)
 import           Network.HTTP.Types.URI
 
 
@@ -51,29 +52,35 @@ call req service = undefined
 
 -- | Request to call API.
 data Request = Request
-  { method         :: HttpMethod
-  , path           :: Text
-  , pathParams     :: [(Text, Text)]
-  , query          :: [(Text, Maybe Text)]
-  , header         :: Fields
-  , body           :: BSS.ByteString
-  , token          :: Maybe Token
-  , alternativeUrl :: Maybe Text
+  { reqMethod         :: HttpMethod -- ^ HTTP request method.
+  , reqPath           :: Text -- ^ Path of API endpoint.
+  , reqParams     :: [(Text, Text)] -- ^ Parameters injected to the path.
+  , reqQuery          :: [(Text, Maybe Text)] -- ^ Query parameters.
+  , reqHeader         :: Header -- ^ Header fields.
+  , reqBody           :: BSS.ByteString -- ^ Request body.
+  , reqToken          :: Maybe Token -- ^ Token to call API.
+  , reqAltUrl :: Maybe Text -- ^ Alternative base URL. 
   } deriving (Eq, Show)
 
+-- | Response to calling API
+data Response = Response
+  { resStatus :: Status
+  , resHeader :: Header
+  , resBody :: BSL.ByteString
+  }
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
   method <- case lookupMethod req service of
          Just m  -> return m
          Nothing -> throw MethodNotDefined
-  path <- case injectUrlParams (apiEndpoint method) (pathParams req) of
+  path <- case injectUrlParams (apiEndpoint method) (reqParams req) of
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
   let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (query req)
+  let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (reqQuery req)
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
-  return $ hreq { C.requestHeaders = toList' $ header req `HM.union` defaultHeader service }
+  return $ hreq { C.requestHeaders = fromHeader' $ reqHeader req `HM.union` defaultHeader service }
 
 percentEncode :: Text -> BSS.ByteString
 percentEncode = urlEncode False . encodeUtf8
@@ -110,8 +117,8 @@ lookupMethod req =
            False
     matchParh _ _ = False
   in
-    L.find (\m -> method req == httpMethod m
-             && matchPath (Done (path req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
+    L.find (\m -> reqMethod req == httpMethod m
+             && matchPath (Done (reqPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
 
 -- | Inject parameters to a path represented with colon or braces.
 injectUrlParams :: Text -> [(Text, Text)] -> Either Text Text

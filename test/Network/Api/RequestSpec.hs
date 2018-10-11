@@ -21,7 +21,7 @@ import           Data.Proxy
 import           Data.Text                (Text)
 import qualified Network.HTTP.Client      as C
 import           Network.Wai.Handler.Warp (run)
-import           Servant                  hiding (GET, POST)
+import           Servant                  hiding (GET, POST, toHeader)
 import           Servant.Server           (serve)
 
 type Api =
@@ -54,7 +54,7 @@ sampleService = Service
                 , Method POST "user/{id}/comment/{article}"
                 , Method POST "token"
                 ]
-                (right $ fromList [("User-Agent", "Netscape Navigator")])
+                (right $ toHeader [("User-Agent", "Netscape Navigator")])
                 (Just . right $ fieldName "Authorization")
                 (Just . right $ fieldValue "Bearer")
                 Nothing
@@ -214,7 +214,7 @@ specBuildHttpRequest = do
       actual <- buildHttpRequest ( Request
                                    GET "user/:id"
                                    [("id", "1234")]
-                                   [] (right $ fromList
+                                   [] (right $ toHeader
                                         [ ("x-nyaan", "nyaan")
                                         , ("Accept", "application/nyaan.v3+json")
                                         ]) ""
