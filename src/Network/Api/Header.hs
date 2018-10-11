@@ -108,14 +108,15 @@ fieldName t =
   let
     p = A.takeWhile1
       (\c ->
+         isAscii c &&
          isAlphaNum c ||
          elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~")
       )
   in
     case feed (parse p t) "" of
       Done "" n -> Right . FieldName $ mk n
-      Done _ _  -> Left "included invalid a character character"
-      Fail {}   -> Left "included invalid a character character"
+      Done _ _  -> Left "included invalid a character(Done)"
+      Fail {}   -> Left "included invalid a character(Fail)"
       Partial _ -> Left "lack input"
 
 -- | A field value of a HTTP header.
@@ -136,10 +137,13 @@ instance FromJSON FieldValue where
 fieldValue :: BSS.ByteString -> Either Text FieldValue
 fieldValue t =
   let
-    p = A.takeWhile1 (\c -> isAscii c && isPrint c)
+    p = BSS.cons <$> A.satisfy isPrint <*> A.takeWhile isValue
+    isValue c = isPrint c ||
+                c == _tab ||
+                c == _space
   in
     case feed (parse p t) "" of
-      Done "" n -> Right $ FieldValue n
+      Done "" n -> (Right . FieldValue) n
       Done _ _  -> Left "included invalid a character character"
       Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"

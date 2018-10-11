@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Network.Api.HeaderSpec where
@@ -21,55 +22,17 @@ import qualified Data.Text             as T
 import           Data.Text.Encoding
 import           Data.Word8
 
+
 spec :: Spec
 spec = do
-  describe "Fields and JSON can convert mutal" specConvertHeader
-  describe "toHeader" specToHeader
-  describe "fromHeader" specFromHeader
+  describe "Converting header" specConvertHeader
   describe "fieldName" specFieldName
   describe "fieldValue" specFieldValue
 
--- For QuickCheck.
-instance Arbitrary FieldName where
-  arbitrary = fmap (right . fieldName) token
-    where
-      token = fmap BSS.pack (listOf1 tchar)
-      tchar = arbitrary `suchThat`
-        (\c -> isAlphaNum c ||
-               L.elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~"))
-  shrink = fmap (right . fieldName . BSS.pack) .
-    shrink . BSS.unpack . original . unFieldName
-
-instance Arbitrary FieldValue where
-  arbitrary = fmap (right . fieldValue) fieldContent
-    where
-      fieldContent = fmap BSS.pack $ (:) <$> vchar <*> listOf vchar'
-      vchar = arbitrary `suchThat` isPrint
-      vchar' = arbitrary `suchThat`
-        (\c -> isPrint c ||
-               c == _tab ||
-               c == _space
-        )
-  shrink = fmap (right . fieldValue . BSS.pack) .
-    shrink . BSS.unpack . unFieldValue
-
-instance Arbitrary Header where
-  arbitrary = fmap HM.fromList (listOf ((,) <$> arbitrary <*> arbitrary))
-  shrink = fmap HM.fromList . shrink . HM.toList
-
 specConvertHeader :: Spec
 specConvertHeader =
-  let
-    fields = HM.fromList
-      [ (right $ fieldName "User-Agent", right $ fieldValue "Netscape Navigator")
-      , (right $ fieldName "Accept", right $ fieldValue "application/json")
-      ] :: Header
-    encoded = "{\"User-Agent\":\"Netscape Navigator\",\"Accept\":\"application/json\"}"
-  in do
-    it "JSON encode" $
-      encode fields `shouldBe` encoded
-    it "JSON decode" $
-      decode encoded `shouldBe` Just fields
+    prop "to/from JSON" $
+      \(h :: Header) -> Just h == (decode . encode) h
 
 specToHeader :: Spec
 specToHeader = do
@@ -110,6 +73,8 @@ specFromHeader =
 
 specFieldName :: Spec
 specFieldName = do
+  prop "prop of FieldName" $
+    \n -> Right n == (fieldName . original . unFieldName) n
   it "normal case1" $
     fieldName "Accept" `shouldSatisfy` isRight
   it "normal case2" $
@@ -143,8 +108,6 @@ specFieldValue = do
     fieldValue "\"spam-sausage/egg*\"" `shouldSatisfy` isRight
   it "empty text" $
     fieldValue "" `shouldSatisfy` isLeft
-  it "include unprintable character" $
-    fieldValue "ah\taa" `shouldSatisfy` isLeft
   it "include non-ASCII character" $
     fieldValue "にゃーん……" `shouldSatisfy` isLeft
 
@@ -161,3 +124,33 @@ specFieldValue = do
       fromJSON "some text" `shouldBe` AE.Success (fromRight undefined $ fieldValue "some text")
     it "invalid value" $
       (fromJSON "あああ" :: AE.Result FieldValue) `shouldSatisfy` isError
+
+-- For QuickCheck.
+instance Arbitrary FieldName where
+  arbitrary = fmap (right . fieldName) token
+    where
+      token = fmap BSS.pack (listOf1 tchar)
+      tchar = arbitrary `suchThat`
+        (\c -> isAscii c &&
+               isAlphaNum c ||
+               L.elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~"))
+  shrink = L.map (right . fieldName . BSS.pack) .
+    L.filter (\s -> not (L.null s) && all isAlphaNum s) . shrink . BSS.unpack . original . unFieldName
+
+instance Arbitrary FieldValue where
+  arbitrary = fmap (right . fieldValue) fieldContent
+    where
+      fieldContent = fmap BSS.pack $ (:) <$> vchar <*> listOf vchar'
+      vchar = arbitrary `suchThat` isPrint
+      vchar' = arbitrary `suchThat`
+        (\c -> isPrint c ||
+               c == _tab ||
+               c == _space
+        )
+  shrink = L.map (right . fieldValue . BSS.pack) .
+    L.filter (not . L.null) . shrink . BSS.unpack . unFieldValue
+
+instance Arbitrary Header where
+  arbitrary = fmap HM.fromList (listOf ((,) <$> arbitrary <*> arbitrary))
+  shrink = fmap HM.fromList . shrink . HM.toList
+
