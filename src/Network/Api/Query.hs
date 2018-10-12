@@ -46,7 +46,6 @@ import qualified Network.HTTP.Types.URI   as U
 --   but it makes implements complecated, so treat keys as unique in this module.
 type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
 
-
 -- | Construct 'Query' with the supplied mappings.
 toQuery :: [(BSS.ByteString, Maybe BSS.ByteString)] -> Query
 toQuery = toQueryWith id

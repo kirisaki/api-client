@@ -21,6 +21,22 @@ module Network.Api
   , Method(..)
   , HttpMethod(..)
 
+    -- * Query
+  , Query
+  , toQuery
+  , toQueryUtf8
+  , toQuery'
+  , toQueryUtf8'
+  , toQueryWith
+  , fromQuery
+  , fromQueryUtf8
+  , fromQueryWith
+  , UrlEncoded
+  , urlEncode
+  , urlEncodeUtf8
+  , urlDecode
+  , urlDecodeUtf8
+
     -- * Header
   , Header
   , toHeader
@@ -36,6 +52,7 @@ module Network.Api
   ) where
 
 import           Network.Api.Header
+import           Network.Api.Query
 import           Network.Api.Request
 import           Network.Api.Service
 

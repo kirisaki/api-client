@@ -22,6 +22,7 @@ module Network.Api.Request
   ) where
 
 import           Network.Api.Header
+import           Network.Api.Query
 import           Network.Api.Service
 
 import           Control.Applicative
@@ -41,8 +42,8 @@ import           Data.Time.Clock
 import           Data.Typeable           (Typeable)
 import           GHC.Generics
 import qualified Network.HTTP.Client     as C
-import           Network.HTTP.Types (Status)
-import           Network.HTTP.Types.URI
+import           Network.HTTP.Types      (Status)
+import           Network.HTTP.Types.URI  hiding (Query)
 
 
 -- | Call WebAPI with getting or updating token automatically.
@@ -52,22 +53,23 @@ call req service = undefined
 
 -- | Request to call API.
 data Request = Request
-  { reqMethod         :: HttpMethod -- ^ HTTP request method.
-  , reqPath           :: Text -- ^ Path of API endpoint.
-  , reqParams     :: [(Text, Text)] -- ^ Parameters injected to the path.
-  , reqQuery          :: [(Text, Maybe Text)] -- ^ Query parameters.
-  , reqHeader         :: Header -- ^ Header fields.
-  , reqBody           :: BSS.ByteString -- ^ Request body.
-  , reqToken          :: Maybe Token -- ^ Token to call API.
-  , reqAltUrl :: Maybe Text -- ^ Alternative base URL. 
+  { reqMethod :: HttpMethod -- ^ HTTP request method.
+  , reqPath   :: Text -- ^ Path of API endpoint.
+  , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
+  , reqQuery  :: Query -- ^ Query parameters.
+  , reqHeader :: Header -- ^ Header fields.
+  , reqBody   :: BSS.ByteString -- ^ Request body.
+  , reqToken  :: Maybe Token -- ^ Token to call API.
+  , reqAltUrl :: Maybe Text -- ^ Alternative base URL.
   } deriving (Eq, Show)
 
 -- | Response to calling API
 data Response = Response
   { resStatus :: Status
   , resHeader :: Header
-  , resBody :: BSL.ByteString
+  , resBody   :: BSL.ByteString
   }
+
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
@@ -78,13 +80,9 @@ buildHttpRequest req service = do
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
   let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  let q = L.map (\(k, v) -> (percentEncode k, percentEncode <$> v)) (reqQuery req)
+  let q = fromQuery $ reqQuery req
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }
-
-percentEncode :: Text -> BSS.ByteString
-percentEncode = urlEncode False . encodeUtf8
-
 
 -- | Exceptions
 data ClientException
