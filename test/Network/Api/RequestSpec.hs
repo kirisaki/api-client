@@ -50,16 +50,19 @@ runMockServer action = do
 
 sampleService :: Service
 sampleService = Service
-                "https://example.net"
-                [ Method GET "user/:id"
-                , Method POST "user/{id}/comment/{article}"
-                , Method POST "token"
-                ]
-                (right $ toHeader [("User-Agent", "Netscape Navigator")])
-                (Just . right $ fieldName "Authorization")
-                (Just . right $ fieldValue "Bearer")
-                Nothing
-
+                { baseUrl = "https://example.net"
+                , methods =
+                  [ Method GET "user/:id"
+                  , Method POST "user/{id}/comment/{article}"
+                  , Method POST "token"
+                  ]
+                , defaultHeader =
+                    right $ toHeader [("User-Agent", "Netscape Navigator")]
+                , tokenHeaderName = Just . right $ fieldName "Authorization"
+                , tokenHeaderPrefix = Just "Bearer"
+                , tokenQueryName = Nothing
+                }
+                
 instance Eq C.Request where
   x == y = and
            [ eq C.host
@@ -294,3 +297,7 @@ specBuildHttpRequest = do
           }
         ) sampleService `shouldThrow` isFailedToInjectUrlParams
 
+specAttachToken :: Spec
+specAttachToken = do
+  it "" $ do
+    pending

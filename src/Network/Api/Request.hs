@@ -12,10 +12,11 @@
 -----------------------------------------------------------------------------
 module Network.Api.Request
   (
-    Request(..)
+    call
+  , attachToken
+  , Request(..)
   , Token(..)
   , ClientException(..)
-  , call
   , buildHttpRequest
   , lookupMethod
   , injectUrlParams
@@ -70,6 +71,11 @@ data Response = Response
   , resBody   :: BSL.ByteString
   }
 
+-- | Attach a token to a request.
+--   This priors a token at the request.
+attachToken :: Request -> Service -> Token -> Request
+attachToken tok req ser = undefined
+
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
 buildHttpRequest req service = do
@@ -79,7 +85,10 @@ buildHttpRequest req service = do
   path <- case injectUrlParams (apiEndpoint method) (reqParams req) of
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
-  let url = fromMaybe (baseUrl service) (T.stripSuffix "/" (baseUrl service)) `T.append` path
+  let url =
+        fromMaybe
+        (baseUrl service)
+        (T.stripSuffix "/" (baseUrl service)) `T.append` path
   let q = fromQuery $ reqQuery req
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }

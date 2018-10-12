@@ -28,7 +28,7 @@ data Service = Service
   , methods           :: [Method]
   , defaultHeader     :: Header
   , tokenHeaderName   :: Maybe FieldName
-  , tokenHeaderPrefix :: Maybe FieldValue
+  , tokenHeaderPrefix :: Maybe Text
   , tokenQueryName    :: Maybe Text
   } deriving (Eq, Show, Ord, Generic)
 instance FromJSON Service
