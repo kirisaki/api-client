@@ -79,11 +79,11 @@ fromQuery = fromQueryWith id
 fromQueryUtf8 :: Query -> [(T.Text, Maybe T.Text)]
 fromQueryUtf8 = fromQueryWith (decodeUtf8With ignore)
 
--- | To 'Query' with mapping functions.
+-- | From 'Query' with mapping functions.
 fromQueryWith :: (BSS.ByteString -> a)  -> Query -> [(a, Maybe a)]
 fromQueryWith f = L.map (\(k, v) -> (f $ urlDecode k, f . urlDecode <$> v)) . HM.toList
 
--- | URIEncoded 'ByteString'
+-- | URIEncoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
   { unUrlEncoded :: BSS.ByteString -- ^ Unwrap encoded string.
   } deriving (Eq, Show, Ord)

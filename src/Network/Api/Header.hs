@@ -15,8 +15,10 @@ module Network.Api.Header
     Header
   , toHeader
   , toHeaderUtf8
+  , toHeaderWith
   , fromHeader
   , fromHeaderUtf8
+  , fromHeaderWith
 
     -- * Header name
   , FieldName
@@ -34,7 +36,7 @@ import           Data.Aeson
 import           Data.Aeson.Encoding        (text)
 import           Data.Attoparsec.ByteString as A
 import qualified Data.ByteString            as BSS
-import           Data.CaseInsensitive       (CI, mk, original)
+import qualified Data.CaseInsensitive       as CI
 import           Data.Char                  (ord)
 import           Data.Either
 import           Data.Hashable
@@ -52,43 +54,56 @@ type Header = HM.HashMap FieldName FieldValue
 -- | Construct header fields with the supplied mappings.
 --   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both
 toHeader :: [(BSS.ByteString, BSS.ByteString)] ->  Either Text Header
-toHeader kvs =
-  HM.fromList <$> forM kvs (
+toHeader = toHeaderWith id
+
+-- | Utf-8 version of 'toHeader'.
+toHeaderUtf8 :: [(T.Text, T.Text)] -> Either Text Header
+toHeaderUtf8 = toHeaderWith encodeUtf8
+
+-- | To 'Header' with mapping function.
+toHeaderWith :: (a -> BSS.ByteString) -> [(a, a)] -> Either Text Header
+toHeaderWith f kvs = HM.fromList <$> forM kvs (
   \(k, v) ->
-    case (fieldName k, fieldValue v) of
+    case (fieldName $ f k, fieldValue $ f v) of
       (Left _, Left _)     -> Left "invalid field name and value"
       (Left _, Right _)    -> Left "invalid field name"
       (Right _, Left _)    -> Left "invalid field value"
       (Right k', Right v') -> Right (k', v')
   )
 
--- | A version of 'toHeader' taking utf-8 text.
-toHeaderUtf8 :: [(T.Text, T.Text)] -> Either Text Header
-toHeaderUtf8 = toHeader . L.map (\(k, v) -> (encodeUtf8 k, encodeUtf8 v))
 
 -- | Return a list of 'ByteString' encoded fields.
-fromHeader :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
-fromHeader = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . HM.toList
+fromHeader :: Header -> [(CI.CI BSS.ByteString, BSS.ByteString)]
+fromHeader = fromHeaderWith id
 
--- | A version of 'fromHeader' returning utf-8 text
-fromHeaderUtf8 :: Header ->  [(T.Text, T.Text)]
-fromHeaderUtf8 = L.map (\(k, v) -> (decodeUtf8 $ original k, decodeUtf8 v)) . fromHeader
+-- | Utf-8 version of 'fromHeader'
+fromHeaderUtf8 :: Header ->  [(CI.CI T.Text, T.Text)]
+fromHeaderUtf8 = fromHeaderWith decodeUtf8
+
+-- | From 'Header' with mapping function.
+fromHeaderWith :: CI.FoldCase a => (BSS.ByteString -> a) -> Header -> [(CI.CI a, a)]
+fromHeaderWith f = L.map (
+  \(k, v) ->
+    ( CI.map f $ unFieldName k
+    , (f . unFieldValue) v
+    )
+  ) . HM.toList
 
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName
-  { unFieldName :: CI BSS.ByteString -- ^ Unwrap field name.
+  { unFieldName :: CI.CI BSS.ByteString -- ^ Unwrap field name.
   } deriving(Show, Eq, Ord)
 
 instance Hashable FieldName where
   hashWithSalt i = hashWithSalt i . unFieldName
 
 instance ToJSON FieldName where
-  toJSON = String . decodeUtf8 . original . unFieldName
+  toJSON = String . decodeUtf8 . CI.original . unFieldName
 
 instance ToJSONKey FieldName where
   toJSONKey = ToJSONKeyText f g
     where
-      f = decodeUtf8 . original . unFieldName
+      f = decodeUtf8 . CI.original . unFieldName
       g = text . f
 
 instance FromJSON FieldName where
@@ -114,7 +129,7 @@ fieldName t =
       )
   in
     case feed (parse p t) "" of
-      Done "" n -> Right . FieldName $ mk n
+      Done "" n -> Right . FieldName $ CI.mk n
       Done _ _  -> Left "included invalid a character(Done)"
       Fail {}   -> Left "included invalid a character(Fail)"
       Partial _ -> Left "lack input"
