@@ -106,78 +106,112 @@ specInjectUrl = do
   it "lack parameters" $
     injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
 
+defReq :: Request
+defReq = Request
+         { reqMethod = GET
+         , reqPath = ""
+         , reqParams = []
+         , reqQuery = HM.empty
+         , reqHeader = HM.empty
+         , reqBody = ""
+         , reqToken = Nothing
+         , reqAltUrl = Nothing
+         }
+
 specLookupMethod :: Spec
 specLookupMethod = do
   it "colon path" $
-    lookupMethod ( Request
-                   GET "user/:id"
-                   [("id", "1234")]
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method GET "user/:id")
+    lookupMethod
+    ( defReq
+      { reqMethod = GET
+      , reqPath = "user/:id"
+      }) sampleService
+    `shouldBe`
+    Just (Method GET "user/:id")
   it "braced path" $
-    lookupMethod ( Request
-                   POST "user/{id}/comment/{article}"
-                   [("id", "1234"), ("article", "331")]
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    lookupMethod
+    ( defReq
+      { reqMethod = POST
+      , reqPath = "user/{id}/comment/{article}"
+      , reqParams = [("id", "1234"), ("article", "331")]
+      }) sampleService
+    `shouldBe`
+    Just (Method POST "user/{id}/comment/{article}")
   it "head slash different" $
-    lookupMethod ( Request
-                   POST "/user/{id}/comment/{article}"
-                   [("id", "1234"), ("article", "331")]
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    lookupMethod
+    ( defReq
+      { reqMethod = POST
+      , reqPath = "/user/{id}/comment/{article}"
+      , reqParams = [("id", "1234"), ("article", "331")]
+      }) sampleService
+    `shouldBe`
+    Just (Method POST "user/{id}/comment/{article}")
   it "parameter in path" $
-    lookupMethod ( Request
-                   GET "user/1234"
-                   []
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method GET "user/:id")
+    lookupMethod
+    ( defReq
+      { reqMethod = GET
+      , reqPath = "user/1234"
+      }) sampleService
+    `shouldBe`
+    Just (Method GET "user/:id")
   it "mixed path" $
-    lookupMethod ( Request
-                   POST "user/{id}/comment/:article"
-                   [("id", "1234"), ("article", "331")]
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Just (Method POST "user/{id}/comment/{article}")
+    lookupMethod
+    ( defReq
+      { reqMethod = POST
+      , reqPath = "user/{id}/comment/:article"
+      }) sampleService
+    `shouldBe`
+    Just (Method POST "user/{id}/comment/{article}")
   it "not exist" $
-    lookupMethod ( Request
-                   GET "nyaan/:aaa"
-                   []
-                   HM.empty HM.empty "" Nothing Nothing
-                 ) sampleService `shouldBe` Nothing
+    lookupMethod
+    ( defReq
+      { reqMethod = GET
+      , reqPath = "nyaan/:aaa"
+      }) sampleService
+    `shouldBe`
+    Nothing
   it "invalid method" $
-    lookupMethod ( Request
-                   GET "user/{id}/comment/{article}"
-                   [("id", "1234"), ("article", "331")]
-                   HM.empty HM.empty  "" Nothing Nothing
-                 ) sampleService `shouldBe` Nothing
+    lookupMethod
+    ( defReq
+      { reqMethod = GET
+      , reqPath = "user/{id}/comment/{article}"
+      , reqParams = [("id", "1234"), ("article", "331")]
+      }) sampleService
+    `shouldBe`
+    Nothing
 
 specBuildHttpRequest :: Spec
 specBuildHttpRequest = do
   context "cases which succeed" $ do
     it "normal case without token" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
-      let expected = req {C.requestHeaders =
-                          [ (mk "User-Agent", "Netscape Navigator")]}
+      let expected =
+            req { C.requestHeaders =
+                    [ (mk "User-Agent", "Netscape Navigator")]
+                }
       actual <- buildHttpRequest
-        ( Request
-          GET "user/:id"
-          [("id", "1234")]
-          HM.empty HM.empty ""
-          Nothing Nothing
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          }
         ) sampleService
       actual `shouldBe` expected
     it "token at header" $ do
       req <- C.parseUrlThrow "https://example.net/user/1234"
-      let expected = req {C.requestHeaders =
-                          [ (mk "User-Agent", "Netscape Navigator")
-                          , (mk "Authorization", "Bearer fuga")
-                          ]}
+      let expected =
+            req { C.requestHeaders =
+                    [ (mk "User-Agent", "Netscape Navigator")
+                    , (mk "Authorization", "Bearer fuga")
+                    ]
+                }
       actual <- buildHttpRequest
-        ( Request
-          GET "user/:id"
-          [("id", "1234")]
-          HM.empty HM.empty ""
-          (Just $ Token "fuga" Nothing) Nothing
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          , reqToken = Just $ Token "fuga" Nothing
+          }
         ) sampleService
       actual `shouldBe` expected
     it "token at query string" $ do
@@ -185,18 +219,21 @@ specBuildHttpRequest = do
       let service = sampleService
             { tokenHeaderName = Nothing
             , tokenHeaderPrefix = Nothing
-            , tokenQueryName = Just "token"}
-      let expected = C.setQueryString
+            , tokenQueryName = Just "token"
+            }
+      let expected =
+            C.setQueryString
             [("token", Just "fuga")]
             req { C.requestHeaders =
                     [(mk "User-Agent", "Netscape Navigator")]
                 }
       actual <- buildHttpRequest
-        ( Request
-          GET "user/:id"
-          [("id", "1234")]
-          HM.empty HM.empty ""
-          (Just $ Token "fuga" Nothing) Nothing
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          , reqToken = Just $ Token "fuga" Nothing
+          }
         ) service
       actual `shouldBe` expected
     it "has additional queries" $ do
@@ -205,12 +242,12 @@ specBuildHttpRequest = do
             { C.requestHeaders =
                 [ (mk "User-Agent", "Netscape Navigator")] }
       actual <- buildHttpRequest
-        ( Request
-          GET "user/:id"
-          [("id", "1234")]
-          (toQuery [("a", Just "aaa"), ("b", Nothing)])
-          HM.empty ""
-          Nothing Nothing
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          , reqQuery = toQuery [("a", Just "aaa"), ("b", Nothing)]
+          }
         ) sampleService
       actual `shouldBe` expected
     it "has additional headers" $ do
@@ -221,15 +258,16 @@ specBuildHttpRequest = do
                 , (mk "Accept", "application/nyaan.v3+json")
                 , (mk "User-Agent", "Netscape Navigator")] }
       actual <- buildHttpRequest
-        ( Request
-          GET "user/:id"
-          [("id", "1234")]
-          HM.empty (right $ toHeader
-               [ ("x-nyaan", "nyaan")
-               , ("Accept", "application/nyaan.v3+json")
-               ]) ""
-          (Just $ Token "fuga" Nothing) Nothing
-                                 ) sampleService
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          , reqHeader = right $ toHeader
+            [ ("x-nyaan", "nyaan")
+            , ("Accept", "application/nyaan.v3+json")
+            ]
+          , reqToken = Just $ Token "fuga" Nothing
+          }) sampleService
       actual `shouldBe` expected
 
   context "cases which fail" $ do
@@ -239,11 +277,10 @@ specBuildHttpRequest = do
         isMethodNotDefined _                = False
       in
         buildHttpRequest
-        ( Request
-          GET "nyaan"
-          []
-          HM.empty HM.empty ""
-          Nothing Nothing
+        ( defReq
+          { reqMethod = GET
+          , reqPath = "nyaan"
+          }
         ) sampleService `shouldThrow` isMethodNotDefined
     it "failed to injecr url params" $
       let
@@ -251,10 +288,9 @@ specBuildHttpRequest = do
         isFailedToInjectUrlParams _                           = False
       in
         buildHttpRequest
-        ( Request
-          GET "user/:id"
-          []
-          HM.empty HM.empty ""
-          Nothing Nothing
+        ( defReq
+          { reqMethod =  GET
+          , reqPath = "user/:id"
+          }
         ) sampleService `shouldThrow` isFailedToInjectUrlParams
 
