@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.Api.QuerySpec where
@@ -9,7 +10,7 @@ import           Test.QuickCheck
 import           TestUtils
 
 import           Data.Aeson
-import           Data.ByteString
+import qualified Data.ByteString       as BSS
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
 import qualified Data.Text             as T
@@ -20,18 +21,23 @@ spec =
   describe "Query function props" $ do
 
   prop "toJSON/fromJSON for Query" $
-    \kvs -> (HM.fromList . L.sort) kvs ==
-    (HM.fromList . L.sort . unpack' . fromQuery .
-     success . fromJSON . toJSON . toQuery . pack' . L.sort) kvs
+    \kvs -> (HM.fromList . ascii) kvs ==
+    (HM.fromList . L.sort . fromQuery .
+     success . fromJSON . toJSON . toQuery . ascii) kvs
 
   prop " urlEncode/urlDecode" $
-    \t -> t == (T.unpack . urlDecode . urlEncode . T.pack) t
+    \t -> t == (BSS.unpack . urlDecode . urlEncode . BSS.pack) t
 
   prop "toQuery/fromQuery" $
-    \kvs -> (HM.fromList . L.sort) kvs ==
-    (HM.fromList . L.sort . unpack' . fromQuery . toQuery . pack' . L.sort) kvs
+    \kvs -> (HM.fromList . ascii) kvs ==
+    (HM.fromList . L.sort . fromQuery . toQuery . ascii) kvs
 
   where
-    apply f (k, v) = (f k, fmap f v)
-    pack' = L.map (apply T.pack)
-    unpack' = L.map (apply T.unpack)
+    ascii = L.sort . L.map (
+      \(k, v) -> ( (encodeUtf8 . T.pack . getASCIIString) k
+                 , fmap (encodeUtf8 . T.pack . getASCIIString) v
+                 ) :: (BSS.ByteString, Maybe BSS.ByteString)
+      )
+
+
+

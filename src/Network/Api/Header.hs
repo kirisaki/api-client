@@ -14,9 +14,9 @@ module Network.Api.Header
     -- * Field of HTTP header
     Header
   , toHeader
-  , toHeader'
+  , toHeaderUtf8
   , fromHeader
-  , fromHeader'
+  , fromHeaderUtf8
 
     -- * Header name
   , FieldName
@@ -62,17 +62,17 @@ toHeader kvs =
       (Right k', Right v') -> Right (k', v')
   )
 
--- | 'Text' arguments version of 'toHeader'
-toHeader' :: [(T.Text, T.Text)] -> Either Text Header
-toHeader' = toHeader . L.map (\(k, v) -> (encodeUtf8 k, encodeUtf8 v))
+-- | A version of 'toHeader' taking utf-8 text.
+toHeaderUtf8 :: [(T.Text, T.Text)] -> Either Text Header
+toHeaderUtf8 = toHeader . L.map (\(k, v) -> (encodeUtf8 k, encodeUtf8 v))
 
--- | Return a list of 'ByteString'-encoded fields.
+-- | Return a list of 'ByteString' encoded fields.
 fromHeader :: Header -> [(CI BSS.ByteString, BSS.ByteString)]
 fromHeader = L.map (\(k, v) -> (unFieldName k, unFieldValue v)) . HM.toList
 
--- | 'Text' arguments version of 'fromHeader'
-fromHeader' :: Header ->  [(T.Text, T.Text)]
-fromHeader' = L.map (\(k, v) -> (decodeUtf8 $ original k, decodeUtf8 v)) . fromHeader
+-- | A version of 'fromHeader' returning utf-8 text
+fromHeaderUtf8 :: Header ->  [(T.Text, T.Text)]
+fromHeaderUtf8 = L.map (\(k, v) -> (decodeUtf8 $ original k, decodeUtf8 v)) . fromHeader
 
 -- | A field name of a HTTP header.
 newtype FieldName = FieldName

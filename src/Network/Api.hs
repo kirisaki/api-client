@@ -24,7 +24,9 @@ module Network.Api
     -- * Header
   , Header
   , toHeader
+  , toHeaderUtf8
   , fromHeader
+  , fromHeaderUtf8
   , FieldName
   , fieldName
   , unFieldName
