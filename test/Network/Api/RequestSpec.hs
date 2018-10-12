@@ -12,17 +12,17 @@ import           Network.Api.Service
 import           Test.Hspec
 import           TestUtils
 
-import Control.Monad.IO.Class
-import           Control.Concurrent 
+import           Control.Concurrent
 import           Control.Exception.Safe
+import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.CaseInsensitive     (mk)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List                as L
 import           Data.Proxy
-import qualified          Data.Text                as T
+import qualified Data.Text                as T
 import qualified Network.HTTP.Client      as C
-import qualified Network.HTTP.Types      as HT
+import qualified Network.HTTP.Types       as HT
 import           Network.Wai.Handler.Warp (run)
 import           Servant                  hiding (GET, POST, toHeader)
 import           Servant.Server           (serve)
@@ -62,7 +62,7 @@ sampleService = Service
                 , tokenHeaderPrefix = Just "Bearer"
                 , tokenQueryName = Nothing
                 }
-                
+
 defReq :: Request
 defReq = Request
          { reqMethod = GET
@@ -100,7 +100,7 @@ spec = do
   describe "lookupMethod" specLookupMethod
   describe "buildHttpRequest" specBuildHttpRequest
 
-  
+
 withMock :: ((Manager, ThreadId) -> IO ()) -> IO ()
 withMock = bracket (
   do
@@ -123,17 +123,19 @@ specCall = around withMock $ do
           , reqParams = [("id", "1234")]
           }
     res <- call man req service
-    resBody res `shouldBe` "{\"id\":\"1234\",\"name\":\"nyaan\"}"
+    (decode $ resBody res :: Maybe Value)
+      `shouldBe`
+      decode "{\"id\":\"1234\",\"name\":\"nyaan\"}"
 
 specAttachToken :: Spec
 specAttachToken = do
-  it "Request has no token and service doesn't requires it." $ do
+  it "Request has no token and service doesn't requires it."
     pending
-  it "Request has no token, but service requiires it." $ do
+  it "Request has no token, but service requiires it."
     pending
-  it "Request has token and service requires it." $ do
+  it "Request has token and service requires it."
     pending
-  it "Request has token, but service doesn't requires it." $ do
+  it "Request has token, but service doesn't requires it."
     pending
 
 specInjectUrl :: Spec

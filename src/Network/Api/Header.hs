@@ -54,18 +54,18 @@ type Header = HM.HashMap FieldName FieldValue
 
 -- | Construct header fields with the supplied mappings.
 --   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both
-toHeader :: [(BSS.ByteString, BSS.ByteString)] ->  Either Text Header
+toHeader :: [(CI.CI BSS.ByteString, BSS.ByteString)] ->  Either Text Header
 toHeader = toHeaderWith id
 
 -- | Utf-8 version of 'toHeader'.
-toHeaderUtf8 :: [(T.Text, T.Text)] -> Either Text Header
+toHeaderUtf8 :: [(CI.CI T.Text, T.Text)] -> Either Text Header
 toHeaderUtf8 = toHeaderWith encodeUtf8
 
 -- | To 'Header' with mapping function.
-toHeaderWith :: (a -> BSS.ByteString) -> [(a, a)] -> Either Text Header
+toHeaderWith :: CI.FoldCase a => (a -> BSS.ByteString) -> [(CI.CI a, a)] -> Either Text Header
 toHeaderWith f kvs = HM.fromList <$> forM kvs (
   \(k, v) ->
-    case (fieldName $ f k, fieldValue $ f v) of
+    case (fieldName $ CI.map f k, fieldValue $ f v) of
       (Left _, Left _)     -> Left "invalid field name and value"
       (Left _, Right _)    -> Left "invalid field name"
       (Right _, Left _)    -> Left "invalid field value"
@@ -108,17 +108,17 @@ instance ToJSONKey FieldName where
 
 instance FromJSON FieldName where
   parseJSON = withText "FieldName" $
-    \t -> case fieldName $ encodeUtf8 t of
+    \t -> case (fieldName . CI.mk . encodeUtf8) t of
       Right n -> return n
       Left e  -> fail $ T.unpack e
 
 instance FromJSONKey FieldName where
   fromJSONKey = FromJSONKeyTextParser f
     where
-      f = either (fail . T.unpack) return . fieldName . encodeUtf8
+      f = either (fail . T.unpack) return . fieldName . CI.mk . encodeUtf8
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
-fieldName :: BSS.ByteString -> Either Text FieldName
+fieldName :: CI.CI BSS.ByteString -> Either Text FieldName
 fieldName t =
   let
     p = A.takeWhile1
@@ -128,8 +128,8 @@ fieldName t =
          elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~")
       )
   in
-    case feed (parse p t) "" of
-      Done "" n -> Right . FieldName $ CI.mk n
+    case feed (parse p (CI.original t)) "" of
+      Done "" n -> (Right . FieldName . CI.mk) n
       Done _ _  -> Left "included invalid a character(Done)"
       Fail {}   -> Left "included invalid a character(Fail)"
       Partial _ -> Left "lack input"

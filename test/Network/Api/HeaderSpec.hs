@@ -65,16 +65,15 @@ specFromHeader :: Spec
 specFromHeader =
   it "normal case" $ do
   let kvs =
-        [ ("accept", "application/someservice+json")
-        , ("User-Agent", "Netscape Communicator")
+        [ (mk "accept", "application/someservice+json")
+        , (mk "User-Agent", "Netscape Communicator")
         ]
-  let kvs' = L.map (\(k, v) -> (mk k, v)) kvs
-  (L.sort . fromHeader . right $ toHeader kvs) `shouldBe` L.sort kvs'
+  (L.sort . fromHeader . right $ toHeader kvs) `shouldBe` L.sort kvs
 
 specFieldName :: Spec
 specFieldName = do
   prop "prop of FieldName" $
-    \n -> Right n == (fieldName . original . unFieldName) n
+    \n -> Right n == (fieldName . unFieldName) n
   it "normal case1" $
     fieldName "Accept" `shouldSatisfy` isRight
   it "normal case2" $
@@ -129,14 +128,14 @@ specFieldValue = do
 
 -- For QuickCheck.
 instance Arbitrary FieldName where
-  arbitrary = fmap (right . fieldName) token
+  arbitrary = fmap (right . fieldName . mk) token
     where
       token = fmap BSS.pack (listOf1 tchar)
       tchar = arbitrary `suchThat`
         (\c -> isAscii c &&
                isAlphaNum c ||
                L.elem c (L.map (fromIntegral . ord) "!#$%&'*+-.^_`|~"))
-  shrink = L.map (right . fieldName . BSS.pack) .
+  shrink = L.map (right . fieldName . mk . BSS.pack) .
     L.filter (\s -> not (L.null s) && all isAlphaNum s) . shrink . BSS.unpack . original . unFieldName
 
 instance Arbitrary FieldValue where
