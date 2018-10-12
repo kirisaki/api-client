@@ -15,11 +15,17 @@ module Network.Api.Request
     call
   , attachToken
   , Request(..)
+  , Response(..)
   , Token(..)
   , ClientException(..)
   , buildHttpRequest
   , lookupMethod
   , injectUrlParams
+
+  -- * Re-export
+  , C.Manager
+  , C.newManager
+  , C.defaultManagerSettings
   ) where
 
 import           Network.Api.Header
@@ -41,6 +47,7 @@ import           Data.Text               as T
 import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Typeable           (Typeable)
+import Data.Word
 import           GHC.Generics
 import qualified Network.HTTP.Client     as C
 import           Network.HTTP.Types      (Status)
@@ -49,8 +56,12 @@ import           Network.HTTP.Types.URI  hiding (Query)
 
 -- | Call WebAPI with getting or updating token automatically.
 --   It's also possible to give a token explicitly.
-call :: Request -> Service -> IO Response
-call req service = undefined
+call :: C.Manager -> Request -> Service -> IO Response
+call man req ser = undefined
+
+-- | If you need to define method to get or update token.
+callWith :: C.Manager -> Request -> Service -> IO Response
+callWith man req ser = undefined
 
 -- | Request to call API.
 data Request = Request
@@ -69,15 +80,16 @@ data Response = Response
   { resStatus :: Status
   , resHeader :: Header
   , resBody   :: BSL.ByteString
-  }
+  , resToken :: Maybe Token
+  } deriving (Eq, Show)
 
 -- | Attach a token to a request.
 --   This priors a token at the request.
-attachToken :: Request -> Service -> Token -> Request
+attachToken :: MonadThrow m => Request -> Service -> Token -> m Request
 attachToken tok req ser = undefined
 
 -- | Build a Network.HTTP.Client.Request from Request.
-buildHttpRequest :: (MonadThrow m) => Request -> Service -> m C.Request
+buildHttpRequest :: MonadThrow m => Request -> Service -> m C.Request
 buildHttpRequest req service = do
   method <- case lookupMethod req service of
          Just m  -> return m
@@ -97,6 +109,7 @@ buildHttpRequest req service = do
 data ClientException
   = MethodNotDefined
   | FailedToInjectUrlParams Text
+  | FailedToAttachToken
   deriving(Show, Typeable)
 instance Exception ClientException
 

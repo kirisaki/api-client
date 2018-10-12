@@ -12,15 +12,17 @@ import           Network.Api.Service
 import           Test.Hspec
 import           TestUtils
 
-import           Control.Concurrent       (forkIO, killThread)
+import Control.Monad.IO.Class
+import           Control.Concurrent 
 import           Control.Exception.Safe
 import           Data.Aeson
 import           Data.CaseInsensitive     (mk)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.List                as L
 import           Data.Proxy
-import           Data.Text                (Text)
+import qualified          Data.Text                as T
 import qualified Network.HTTP.Client      as C
+import qualified Network.HTTP.Types      as HT
 import           Network.Wai.Handler.Warp (run)
 import           Servant                  hiding (GET, POST, toHeader)
 import           Servant.Server           (serve)
@@ -40,13 +42,11 @@ server = getUser :<|> postComment :<|> getToken :<|> hoge :<|> emptyServer
     getToken _ = return $ object ["token" .= String "opensesami", "expire_in" .= String "3600"]
     hoge = return $ object ["foo" .= String "bar"]
 
-mockServer :: IO ()
-mockServer = run 8080 (serve (Proxy @ Api) server)
+mockServerPort :: Int
+mockServerPort = 9432
 
-runMockServer :: IO () -> IO ()
-runMockServer action = do
-  tid <- forkIO mockServer
-  action `finally` killThread tid
+mockServer :: IO ()
+mockServer = run mockServerPort (serve (Proxy @ Api) server)
 
 sampleService :: Service
 sampleService = Service
@@ -63,6 +63,18 @@ sampleService = Service
                 , tokenQueryName = Nothing
                 }
                 
+defReq :: Request
+defReq = Request
+         { reqMethod = GET
+         , reqPath = ""
+         , reqParams = []
+         , reqQuery = HM.empty
+         , reqHeader = HM.empty
+         , reqBody = ""
+         , reqToken = Nothing
+         , reqAltUrl = Nothing
+         }
+
 instance Eq C.Request where
   x == y = and
            [ eq C.host
@@ -82,9 +94,47 @@ instance Eq C.Request where
 
 spec :: Spec
 spec = do
+  describe "call" specCall
+  describe "attachToken" specAttachToken
   describe "injectUrl"  specInjectUrl
   describe "lookupMethod" specLookupMethod
   describe "buildHttpRequest" specBuildHttpRequest
+
+  
+withMock :: ((Manager, ThreadId) -> IO ()) -> IO ()
+withMock = bracket (
+  do
+    tid <- forkIO mockServer
+    man <- newManager defaultManagerSettings
+    return (man, tid)
+  )
+  (killThread . snd)
+
+specCall :: Spec
+specCall = around withMock $ do
+  let service = sampleService
+        { baseUrl = "http://localhost:"
+          `T.append` (T.pack . show) mockServerPort
+        }
+  it "normal case" $ \(man, _) -> do
+    let req = defReq
+          { reqMethod = GET
+          , reqPath = "user/:id"
+          , reqParams = [("id", "1234")]
+          }
+    res <- call man req service
+    resBody res `shouldBe` "{\"id\":\"1234\",\"name\":\"nyaan\"}"
+
+specAttachToken :: Spec
+specAttachToken = do
+  it "Request has no token and service doesn't requires it." $ do
+    pending
+  it "Request has no token, but service requiires it." $ do
+    pending
+  it "Request has token and service requires it." $ do
+    pending
+  it "Request has token, but service doesn't requires it." $ do
+    pending
 
 specInjectUrl :: Spec
 specInjectUrl = do
@@ -108,18 +158,6 @@ specInjectUrl = do
     injectUrlParams "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
   it "lack parameters" $
     injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
-
-defReq :: Request
-defReq = Request
-         { reqMethod = GET
-         , reqPath = ""
-         , reqParams = []
-         , reqQuery = HM.empty
-         , reqHeader = HM.empty
-         , reqBody = ""
-         , reqToken = Nothing
-         , reqAltUrl = Nothing
-         }
 
 specLookupMethod :: Spec
 specLookupMethod = do
@@ -296,8 +334,3 @@ specBuildHttpRequest = do
           , reqPath = "user/:id"
           }
         ) sampleService `shouldThrow` isFailedToInjectUrlParams
-
-specAttachToken :: Spec
-specAttachToken = do
-  it "" $ do
-    pending
