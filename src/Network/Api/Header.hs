@@ -44,6 +44,7 @@ import qualified Data.HashMap.Strict        as HM
 import qualified Data.List                  as L
 import           Data.Text                  as T
 import           Data.Text.Encoding
+import           Data.Text.Encoding.Error
 import           Data.Word8
 
 -- | Collection of HTTP header fields.
@@ -71,14 +72,13 @@ toHeaderWith f kvs = HM.fromList <$> forM kvs (
       (Right k', Right v') -> Right (k', v')
   )
 
-
 -- | Return a list of 'ByteString' encoded fields.
 fromHeader :: Header -> [(CI.CI BSS.ByteString, BSS.ByteString)]
 fromHeader = fromHeaderWith id
 
 -- | Utf-8 version of 'fromHeader'
 fromHeaderUtf8 :: Header ->  [(CI.CI T.Text, T.Text)]
-fromHeaderUtf8 = fromHeaderWith decodeUtf8
+fromHeaderUtf8 = fromHeaderWith $ decodeUtf8With ignore
 
 -- | From 'Header' with mapping function.
 fromHeaderWith :: CI.FoldCase a => (BSS.ByteString -> a) -> Header -> [(CI.CI a, a)]
@@ -98,12 +98,12 @@ instance Hashable FieldName where
   hashWithSalt i = hashWithSalt i . unFieldName
 
 instance ToJSON FieldName where
-  toJSON = String . decodeUtf8 . CI.original . unFieldName
+  toJSON = String . decodeUtf8With ignore . CI.original . unFieldName
 
 instance ToJSONKey FieldName where
   toJSONKey = ToJSONKeyText f g
     where
-      f = decodeUtf8 . CI.original . unFieldName
+      f = decodeUtf8With ignore . CI.original . unFieldName
       g = text . f
 
 instance FromJSON FieldName where
@@ -140,7 +140,7 @@ newtype FieldValue = FieldValue
   } deriving(Show, Eq, Ord)
 
 instance ToJSON FieldValue where
-  toJSON = String . decodeUtf8 . unFieldValue
+  toJSON = String . decodeUtf8With ignore . unFieldValue
 
 instance FromJSON FieldValue where
   parseJSON = withText "FieldValue" $
