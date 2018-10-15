@@ -14,12 +14,14 @@ module Network.Api
   , Request(..)
   , buildHttpRequest
   , lookupMethod
-  , injectUrlParams
 
     -- * Service
   , Service(..)
   , Method(..)
   , HttpMethod(..)
+
+    -- * URL
+  , inject
 
     -- * Query
   , Query
@@ -55,4 +57,5 @@ import           Network.Api.Header
 import           Network.Api.Query
 import           Network.Api.Request
 import           Network.Api.Service
+import           Network.Api.Url
 

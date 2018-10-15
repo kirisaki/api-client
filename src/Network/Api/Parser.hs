@@ -1,4 +1,9 @@
-module Network.Api.Parser where
+module Network.Api.Parser
+  (
+    Segment(..)
+  , segment
+  )
+where
 
 import           Control.Applicative
 import           Data.Attoparsec.Text

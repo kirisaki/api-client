@@ -20,7 +20,6 @@ module Network.Api.Request
   , ClientException(..)
   , buildHttpRequest
   , lookupMethod
-  , injectUrlParams
 
   -- * Re-export
   , C.newManager
@@ -31,6 +30,7 @@ import           Network.Api.Header
 import           Network.Api.Parser
 import           Network.Api.Query
 import           Network.Api.Service
+import           Network.Api.Url
 
 import           Control.Applicative
 import           Control.Exception.Safe  as E
@@ -102,7 +102,7 @@ buildHttpRequest req service = do
   method <- case lookupMethod req service of
          Just m  -> return m
          Nothing -> throw MethodNotDefined
-  path <- case injectUrlParams (apiEndpoint method) (reqParams req) of
+  path <- case inject (apiEndpoint method) (reqParams req) of
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
   let url =
@@ -148,27 +148,3 @@ lookupMethod req =
     L.find (\m -> reqMethod req == httpMethod m
              && matchPath (Done (reqPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
 
--- | Inject parameters to a path represented with colon or braces.
-injectUrlParams :: Text -> [(Text, Text)] -> Either Text Text
-injectUrlParams path params =
-  let
-    inject (Right path, "") = Right path
-    inject (Left e, _) = Left e
-    inject (Right path, remain) =
-      case feed (parse segment remain) "" of
-        Done rem new ->
-          case new of
-            Param k ->
-              case lookup k params of
-                Just v ->
-                  inject (Right (path `snoc` '/' `append` v), rem)
-                Nothing ->
-                  Left "lack parameters"
-            Raw "" ->
-              inject (Right path, rem)
-            Raw t ->
-              inject (Right (path `snoc` '/' `append` t), rem)
-        _ ->
-          Left "failed parsing"
-  in
-    inject (Right "", path)

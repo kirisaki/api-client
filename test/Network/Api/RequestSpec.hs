@@ -9,6 +9,7 @@ import           Network.Api.Header
 import           Network.Api.Query
 import           Network.Api.Request
 import           Network.Api.Service
+import           Network.Api.Url
 import           Test.Hspec
 import           TestUtils
 
@@ -141,25 +142,25 @@ specAttachToken = do
 specInjectUrl :: Spec
 specInjectUrl = do
   it "path with colon parameters 1" $
-    injectUrlParams "/user/:id" [("id", "1234")] `shouldBe` Right "/user/1234"
+    inject "/user/:id" [("id", "1234")] `shouldBe` Right "/user/1234"
   it "path with colon parameters 2" $
-    injectUrlParams "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
   it "path with braced parameters" $
-    injectUrlParams "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
   it "parameter between raw paths" $
-    injectUrlParams "/user/{id}/comment" [("id", "42")] `shouldBe` Right "/user/42/comment"
+    inject "/user/{id}/comment" [("id", "42")] `shouldBe` Right "/user/42/comment"
   it "parameter between raw paths with trailing slash" $
-    injectUrlParams "/user/{id}/comment/" [("id", "42")] `shouldBe` Right "/user/42/comment"
+    inject "/user/{id}/comment/" [("id", "42")] `shouldBe` Right "/user/42/comment"
   it "path without head slash" $
-    injectUrlParams "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
   it "parameter in the head without slash" $
-    injectUrlParams "{id}/" [("id", "42")] `shouldBe` Right "/42"
+    inject "{id}/" [("id", "42")] `shouldBe` Right "/42"
   it "mixed parameters" $
-    injectUrlParams "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
   it "extra parameters" $
-    injectUrlParams "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
+    inject "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
   it "lack parameters" $
-    injectUrlParams "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
+    inject "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
 
 specLookupMethod :: Spec
 specLookupMethod = do
@@ -327,12 +328,12 @@ specBuildHttpRequest = do
         ) sampleService `shouldThrow` isMethodNotDefined
     it "failed to injecr url params" $
       let
-        isFailedToInjectUrlParams (FailedToInjectUrlParams _) = True
-        isFailedToInjectUrlParams _                           = False
+        isFailedToInject (FailedToInjectUrlParams _) = True
+        isFailedToInject _                           = False
       in
         buildHttpRequest
         ( defReq
           { reqMethod =  GET
           , reqPath = "user/:id"
           }
-        ) sampleService `shouldThrow` isFailedToInjectUrlParams
+        ) sampleService `shouldThrow` isFailedToInject
