@@ -23,12 +23,12 @@ module Network.Api.Request
   , injectUrlParams
 
   -- * Re-export
-  , C.Manager
   , C.newManager
   , C.defaultManagerSettings
   ) where
 
 import           Network.Api.Header
+import           Network.Api.Parser
 import           Network.Api.Query
 import           Network.Api.Service
 
@@ -172,18 +172,3 @@ injectUrlParams path params =
           Left "failed parsing"
   in
     inject (Right "", path)
-
--- Parsers
-bracedParam :: Parser Segment
-bracedParam = Param <$> (char '{' *> takeTill (== '}') <* char '}')
-
-colonParam :: Parser Segment
-colonParam = Param <$> (char ':' *> takeTill (== '/'))
-
-rawPath :: Parser Segment
-rawPath = Raw <$> (takeTill (== '/') <|> takeText)
-
-data Segment = Param Text | Raw Text deriving(Eq, Show)
-
-segment :: Parser Segment
-segment =  skipWhile (== '/') *> (colonParam <|> bracedParam <|> rawPath) <* option '/' (char '/')

@@ -39,6 +39,7 @@ data Method = Method
   { httpMethod  :: HttpMethod
   , apiEndpoint :: Text
   } deriving (Eq, Show, Ord, Read, Generic)
+
 instance FromJSON Method
 instance ToJSON Method
 

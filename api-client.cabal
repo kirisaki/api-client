@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f4c13ff3c1c16e28ada9b131d17504b6a5297850a895e96ec09314490bfcc224
+-- hash: f97d9cbe709f25f3ace728514db0dda9c02cbdbb5e2ddf6137b4ea5689e9b5db
 
 name:           api-client
 version:        0.0.1
@@ -30,6 +30,7 @@ library
   exposed-modules:
       Network.Api
       Network.Api.Header
+      Network.Api.Parser
       Network.Api.Query
       Network.Api.Request
       Network.Api.Service

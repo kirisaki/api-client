@@ -101,7 +101,7 @@ spec = do
   describe "buildHttpRequest" specBuildHttpRequest
 
 
-withMock :: ((Manager, ThreadId) -> IO ()) -> IO ()
+withMock :: ((C.Manager, ThreadId) -> IO ()) -> IO ()
 withMock = bracket (
   do
     tid <- forkIO mockServer
