@@ -33,9 +33,33 @@ import           Data.Hashable
 import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
+import           Data.Word
 import qualified Network.HTTP.Types.URI   as U
 
+-- | Wrapped URL.
+newtype Url = Url
+  { unUrl :: BSS.ByteString
+  } deriving (Show, Ord, Eq)
 
+-- | Wrapped URL scheme.
+newtype Scheme = Scheme
+  { unScheme :: BSS.ByteString
+  } deriving (Show, Ord, Eq)
+
+-- | Wrapped port number
+newtype Port = Port
+  { unPort :: Word16
+  }
+
+-- | Wrapped hostname.
+newtype Host = Host
+  { unHost :: BSS.ByteString
+  } deriving (Show, Ord, Eq)
+
+-- | Wrapped path.
+newtype Path = Path
+  { unPath :: BSS.ByteString
+  } deriving (Show, Ord, Eq)
 
 -- | URIEncoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
