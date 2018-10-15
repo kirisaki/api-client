@@ -3,10 +3,16 @@ module Network.Api.UrlSpec where
 
 import           Network.Api.Url
 import           Test.Hspec
+import           Test.Hspec.QuickCheck
+import           Test.QuickCheck
 import           TestUtils
 
+import qualified Data.ByteString       as BSS
+
 spec :: Spec
-spec =
+spec = do
+  prop " urlEncode/urlDecode" $
+    \t -> t == (BSS.unpack . urlDecode . urlEncode . BSS.pack) t
   describe "inject" specInject
 
 specInject :: Spec

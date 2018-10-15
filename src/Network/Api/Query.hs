@@ -20,26 +20,17 @@ module Network.Api.Query
   , fromQuery
   , fromQueryUtf8
   , fromQueryWith
-
-    -- * URL encoded string
-  , UrlEncoded
-  , urlEncode
-  , urlEncodeUtf8
-  , urlDecode
-  , urlDecodeUtf8
   ) where
 
+import           Network.Api.Url
+
 import           Data.Aeson
-import           Data.Aeson.Encoding      (text)
 import qualified Data.ByteString          as BSS
-import           Data.Functor.Identity
-import           Data.Hashable
 import           Data.HashMap.Strict      as HM
 import qualified Data.List                as L
 import qualified Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
-import qualified Network.HTTP.Types.URI   as U
 
 -- | Collection of URL query parameters.
 --   Behaviour when duplicated query keys at URL is not defined,
@@ -81,44 +72,3 @@ fromQueryUtf8 = fromQueryWith (decodeUtf8With ignore)
 -- | From 'Query' with mapping functions.
 fromQueryWith :: (BSS.ByteString -> a)  -> Query -> [(a, Maybe a)]
 fromQueryWith f = L.map (\(k, v) -> (f $ urlDecode k, f . urlDecode <$> v)) . HM.toList
-
--- | URIEncoded 'ByteString'.
-newtype UrlEncoded = UrlEncoded
-  { unUrlEncoded :: BSS.ByteString -- ^ Unwrap encoded string.
-  } deriving (Eq, Show, Ord)
-
-instance Hashable UrlEncoded where
-  hashWithSalt i = hashWithSalt i . unUrlEncoded
-
-instance ToJSON UrlEncoded where
-  toJSON = String . urlDecodeUtf8
-
-instance ToJSONKey UrlEncoded where
-  toJSONKey = ToJSONKeyText f g
-    where
-      f = urlDecodeUtf8
-      g = text . f
-
-instance FromJSON UrlEncoded where
-  parseJSON = withText "UrlEncoded" (return . urlEncodeUtf8)
-
-instance FromJSONKey UrlEncoded where
-  fromJSONKey = FromJSONKeyTextParser (return . urlEncodeUtf8)
-
--- | ByteString text to URI encoded bytestring.
---   It converts '='
-urlEncode :: BSS.ByteString -> UrlEncoded
-urlEncode = UrlEncoded . U.urlEncode True
-
--- | Utf-8 version of 'urlEncode'.
-urlEncodeUtf8 :: T.Text -> UrlEncoded
-urlEncodeUtf8 = urlEncode . encodeUtf8
-
--- | Decode URI encoded bytestrings to ByteString.
-urlDecode :: UrlEncoded -> BSS.ByteString
-urlDecode = U.urlDecode True . unUrlEncoded
-
--- | Utf-8 version of 'urlDecode'.
-urlDecodeUtf8 :: UrlEncoded -> T.Text
-urlDecodeUtf8 = decodeUtf8With ignore . urlDecode
-

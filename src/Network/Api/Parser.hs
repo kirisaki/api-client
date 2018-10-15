@@ -1,3 +1,12 @@
+----------------------------------------------------------------------------
+-- |
+-- Module      :  Network.Api.Parser
+-- Copyright   :  (c) Akihito KIRISAKI 2018
+-- License     :  BSD3
+--
+-- Maintainer  :  Akihito KIRISAKI <kirisaki@klaraworks.net>
+--
+-----------------------------------------------------------------------------
 module Network.Api.Parser
   (
     Segment(..)

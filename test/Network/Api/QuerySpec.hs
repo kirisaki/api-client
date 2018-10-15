@@ -25,9 +25,6 @@ spec =
     (HM.fromList . L.sort . fromQuery .
      success . fromJSON . toJSON . toQuery . ascii) kvs
 
-  prop " urlEncode/urlDecode" $
-    \t -> t == (BSS.unpack . urlDecode . urlEncode . BSS.pack) t
-
   prop "toQuery/fromQuery" $
     \kvs -> (HM.fromList . ascii) kvs ==
     (HM.fromList . L.sort . fromQuery . toQuery . ascii) kvs
