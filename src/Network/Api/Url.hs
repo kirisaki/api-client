@@ -28,7 +28,7 @@ import           Control.Applicative
 import           Data.Aeson
 import           Data.Aeson.Encoding      (text)
 import           Data.Attoparsec.Text
-import qualified Data.ByteString          as BSS
+import qualified Data.ByteString          as SBS
 import           Data.Hashable
 import           Data.Text                as T
 import           Data.Text.Encoding
@@ -36,34 +36,61 @@ import           Data.Text.Encoding.Error
 import           Data.Word
 import qualified Network.HTTP.Types.URI   as U
 
+-- | Convert Url to 'ByteString'
+fromUrl :: Url -> SBS.ByteString
+fromUrl (Url s a h p) = undefined
+
 -- | Wrapped URL.
-newtype Url = Url
-  { unUrl :: BSS.ByteString
+data Url = Url
+  { scheme   :: Scheme
+  , auth     :: Maybe Auth
+  , hostName :: HostName
+  , urlPath  :: UrlPath
   } deriving (Show, Ord, Eq)
 
--- | Wrapped URL scheme.
-newtype Scheme = Scheme
-  { unScheme :: BSS.ByteString
+-- | URL scheme.
+data Scheme
+  = Http
+  | Https
+  deriving (Show, Ord, Eq, Read)
+
+fromScheme :: Scheme -> SBS.ByteString
+fromScheme Http  = "http"
+fromScheme Https = "https"
+
+toScheme :: SBS.ByteString -> Maybe Scheme
+toScheme "http"  = Just Http
+toScheme "https" = Just Https
+toScheme _       = Nothing
+
+newtype Auth = Auth
+  { unAuth :: (SBS.ByteString, SBS.ByteString)
   } deriving (Show, Ord, Eq)
 
 -- | Wrapped port number
 newtype Port = Port
   { unPort :: Word16
-  }
+  } deriving (Show, Ord, Eq)
+
+toPort :: Integer -> Maybe Port
+toPort n =
+  if 0 <= n && n <= 65535
+  then (Just . Port . fromIntegral) n
+  else Nothing
 
 -- | Wrapped hostname.
-newtype Host = Host
-  { unHost :: BSS.ByteString
+newtype HostName = HostName
+  { unHost :: SBS.ByteString
   } deriving (Show, Ord, Eq)
 
 -- | Wrapped path.
-newtype Path = Path
-  { unPath :: BSS.ByteString
+newtype UrlPath = UrlPath
+  { unUrlPath :: SBS.ByteString
   } deriving (Show, Ord, Eq)
 
 -- | URIEncoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
-  { unUrlEncoded :: BSS.ByteString -- ^ Unwrap encoded string.
+  { unUrlEncoded :: SBS.ByteString -- ^ Unwrap encoded string.
   } deriving (Eq, Show, Ord)
 
 instance Hashable UrlEncoded where
@@ -86,7 +113,7 @@ instance FromJSONKey UrlEncoded where
 
 -- | ByteString text to URI encoded bytestring.
 --   It converts '='
-urlEncode :: BSS.ByteString -> UrlEncoded
+urlEncode :: SBS.ByteString -> UrlEncoded
 urlEncode = UrlEncoded . U.urlEncode True
 
 -- | Utf-8 version of 'urlEncode'.
@@ -94,7 +121,7 @@ urlEncodeUtf8 :: T.Text -> UrlEncoded
 urlEncodeUtf8 = urlEncode . encodeUtf8
 
 -- | Decode URI encoded bytestrings to ByteString.
-urlDecode :: UrlEncoded -> BSS.ByteString
+urlDecode :: UrlEncoded -> SBS.ByteString
 urlDecode = U.urlDecode True . unUrlEncoded
 
 -- | Utf-8 version of 'urlDecode'.

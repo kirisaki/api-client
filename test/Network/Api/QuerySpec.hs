@@ -10,7 +10,7 @@ import           Test.QuickCheck
 import           TestUtils
 
 import           Data.Aeson
-import qualified Data.ByteString       as BSS
+import qualified Data.ByteString       as SBS
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
 import qualified Data.Text             as T
@@ -33,7 +33,7 @@ spec =
     ascii = L.sort . L.map (
       \(k, v) -> ( (encodeUtf8 . T.pack . getASCIIString) k
                  , fmap (encodeUtf8 . T.pack . getASCIIString) v
-                 ) :: (BSS.ByteString, Maybe BSS.ByteString)
+                 ) :: (SBS.ByteString, Maybe SBS.ByteString)
       )
 
 

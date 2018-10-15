@@ -25,7 +25,7 @@ module Network.Api.Query
 import           Network.Api.Url
 
 import           Data.Aeson
-import qualified Data.ByteString          as BSS
+import qualified Data.ByteString          as SBS
 import           Data.HashMap.Strict      as HM
 import qualified Data.List                as L
 import qualified Data.Text                as T
@@ -38,7 +38,7 @@ import           Data.Text.Encoding.Error
 type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
 
 -- | Construct 'Query' with the supplied mappings.
-toQuery :: [(BSS.ByteString, Maybe BSS.ByteString)] -> Query
+toQuery :: [(SBS.ByteString, Maybe SBS.ByteString)] -> Query
 toQuery = toQueryWith id
 
 -- | Utf-8 version of 'toQuery'
@@ -46,7 +46,7 @@ toQueryUtf8 :: [(T.Text, Maybe T.Text)] -> Query
 toQueryUtf8 = toQueryWith encodeUtf8
 
 -- | Construct 'Query' without parameter-less field.
-toQuery' :: [(BSS.ByteString, BSS.ByteString)] -> Query
+toQuery' :: [(SBS.ByteString, SBS.ByteString)] -> Query
 toQuery' = toQueryWith' id
 
 -- | Utf-8 version of 'toQuery\''
@@ -54,15 +54,15 @@ toQueryUtf8' :: [(T.Text, T.Text)] -> Query
 toQueryUtf8' = toQueryWith' encodeUtf8
 
 -- | To 'Query' with mapping functions.
-toQueryWith :: (a -> BSS.ByteString) -> [(a, Maybe a)] -> Query
+toQueryWith :: (a -> SBS.ByteString) -> [(a, Maybe a)] -> Query
 toQueryWith f = HM.fromList . L.map (\(k, v) -> (urlEncode $ f k, urlEncode . f <$> v))
 
 -- | To 'Query' with mapping functions without parameter-less field.
-toQueryWith' :: (a -> BSS.ByteString) -> [(a, a)] -> Query
+toQueryWith' :: (a -> SBS.ByteString) -> [(a, a)] -> Query
 toQueryWith' f = HM.fromList . L.map (\(k, v) -> (urlEncode $ f k, (Just . urlEncode . f) v))
 
 -- | Return a list of 'ByteString' encoded fields.
-fromQuery :: Query -> [(BSS.ByteString, Maybe BSS.ByteString)]
+fromQuery :: Query -> [(SBS.ByteString, Maybe SBS.ByteString)]
 fromQuery = fromQueryWith id
 
 -- | Utf-8 version 'fromQuery'.
@@ -70,5 +70,5 @@ fromQueryUtf8 :: Query -> [(T.Text, Maybe T.Text)]
 fromQueryUtf8 = fromQueryWith (decodeUtf8With ignore)
 
 -- | From 'Query' with mapping functions.
-fromQueryWith :: (BSS.ByteString -> a)  -> Query -> [(a, Maybe a)]
+fromQueryWith :: (SBS.ByteString -> a)  -> Query -> [(a, Maybe a)]
 fromQueryWith f = L.map (\(k, v) -> (f $ urlDecode k, f . urlDecode <$> v)) . HM.toList

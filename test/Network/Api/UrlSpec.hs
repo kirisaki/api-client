@@ -12,7 +12,7 @@ import qualified Data.ByteString       as BSS
 spec :: Spec
 spec = do
   prop " urlEncode/urlDecode" $
-    \t -> t == (BSS.unpack . urlDecode . urlEncode . BSS.pack) t
+    \t -> t == (SBS.unpack . urlDecode . urlEncode . SBS.pack) t
   describe "inject" specInject
 
 specInject :: Spec

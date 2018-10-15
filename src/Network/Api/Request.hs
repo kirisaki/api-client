@@ -35,8 +35,8 @@ import           Network.Api.Url
 import           Control.Applicative
 import           Control.Exception.Safe  as E
 import           Data.Attoparsec.Text    as A
-import qualified Data.ByteString         as BSS
-import qualified Data.ByteString.Lazy    as BSL
+import qualified Data.ByteString         as SBS
+import qualified Data.ByteString.Lazy    as LBS
 import           Data.CaseInsensitive    (CI, mk, original)
 import           Data.Either.Combinators
 import           Data.Hashable
@@ -78,7 +78,7 @@ data Request = Request
   , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
   , reqQuery  :: Query -- ^ Query parameters.
   , reqHeader :: Header -- ^ Header fields.
-  , reqBody   :: BSS.ByteString -- ^ Request body.
+  , reqBody   :: SBS.ByteString -- ^ Request body.
   , reqToken  :: Maybe Token -- ^ Token to call API.
   , reqAltUrl :: Maybe Text -- ^ Alternative base URL.
   } deriving (Eq, Show)
@@ -87,7 +87,7 @@ data Request = Request
 data Response = Response
   { resStatus :: Status
   , resHeader :: Either Text Header
-  , resBody   :: BSL.ByteString
+  , resBody   :: LBS.ByteString
   , resToken  :: Maybe Token
   } deriving (Eq, Show)
 
