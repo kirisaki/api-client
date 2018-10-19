@@ -28,7 +28,6 @@ module Network.Api.Request
 
 import           Network.Api.Header
 import           Network.Api.Parser
-import           Network.Api.Query
 import           Network.Api.Service
 import           Network.Api.Url
 

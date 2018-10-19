@@ -54,7 +54,6 @@ module Network.Api
   ) where
 
 import           Network.Api.Header
-import           Network.Api.Query
 import           Network.Api.Request
 import           Network.Api.Service
 import           Network.Api.Url

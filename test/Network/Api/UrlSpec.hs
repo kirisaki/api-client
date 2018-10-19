@@ -7,13 +7,36 @@ import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 import           TestUtils
 
-import qualified Data.ByteString       as BSS
+import           Data.Aeson
+import qualified Data.ByteString       as SBS
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List             as L
+import qualified Data.Text             as T
+import           Data.Text.Encoding
 
 spec :: Spec
 spec = do
   prop " urlEncode/urlDecode" $
     \t -> t == (SBS.unpack . urlDecode . urlEncode . SBS.pack) t
-  describe "inject" specInject
+  describe "inject" $ it "" pending -- specInject
+  describe "Query function props" specQuery
+
+specQuery :: Spec
+specQuery = do
+  prop "toJSON/fromJSON for Query" $
+    \kvs -> (HM.fromList . ascii) kvs ==
+    (HM.fromList . L.sort . fromQuery .
+     success . fromJSON . toJSON . toQuery . ascii) kvs
+
+  prop "toQuery/fromQuery" $
+    \kvs -> (HM.fromList . ascii) kvs ==
+    (HM.fromList . L.sort . fromQuery . toQuery . ascii) kvs
+  where
+    ascii = L.sort . L.map (
+      \(k, v) -> ( (encodeUtf8 . T.pack . getASCIIString) k
+                 , fmap (encodeUtf8 . T.pack . getASCIIString) v
+                 ) :: (SBS.ByteString, Maybe SBS.ByteString)
+      )
 
 specInject :: Spec
 specInject = do
