@@ -1,4 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -49,9 +54,11 @@ import           Data.Attoparsec.ByteString.Char8 as A
 import qualified Data.ByteString.Char8            as SBS
 import qualified Data.ByteString.Lazy             as LBS
 import           Data.Char
+import           Data.Foldable
 import           Data.Hashable
 import           Data.HashMap.Strict              as HM
 import qualified Data.List                        as L
+import           Data.Proxy
 import           Data.Text                        as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
@@ -127,14 +134,22 @@ hostname =
 
 
 -- | Wrapped path.
+newtype PathLike a = PathLike a deriving (Show, Ord, Eq)
+
+instance forall (a :: [*]) (b :: [*]). Functor PathLike where
+  fmap f (PathLike p) = PathLike (f p)
+
 newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Ord, Eq)
 
-fromUrlPath :: UrlPath -> UrlEncoded
-fromUrlPath = UrlEncoded . SBS.intercalate "/" . L.map unUrlEncoded . unUrlPath
+fromPath :: PathLike UrlEncoded -> UrlEncoded
+fromPath = UrlEncoded . SBS.intercalate "/" . L.map unUrlEncoded . unUrlPath
 
-toUrlPath :: UrlEncoded -> UrlPath
-toUrlPath =
+toPath :: UrlEncoded -> PathLike
+toPath =
   UrlPath . L.map UrlEncoded . L.filter (\p -> p /= "" && p /= "..") . SBS.split '/' . unUrlEncoded
+
+--(</>) :: UrlPath -> UrlPath -> UrlPath
+--(</>) (UrlPath a) (UrlPath b) = a ++ b
 
 -- | URL with parameters.
 data Piece = Raw UrlEncoded | Param T.Text
