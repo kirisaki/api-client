@@ -8,7 +8,8 @@ import           Test.QuickCheck
 import           TestUtils
 
 import           Data.Aeson
-import qualified Data.ByteString       as SBS
+import qualified Data.ByteString.Char8 as SBS
+import           Data.Char
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
 import qualified Data.Text             as T
@@ -17,7 +18,16 @@ import           Data.Text.Encoding
 spec :: Spec
 spec = do
   prop " urlEncode/urlDecode" $
-    \t -> t == (SBS.unpack . urlDecode . urlEncode . SBS.pack) t
+    \t -> getASCIIString t == (SBS.unpack . urlDecode . urlEncode . SBS.pack . getASCIIString) t
+  prop "toUrlPath/fromUrlPath" $
+    \path ->
+      (SBS.intercalate "/" .
+       L.filter (\p -> p /= "" && p /= "..")  .
+       SBS.split '/' .
+       SBS.pack . getASCIIString ) path
+      ==
+      (urlDecode . fromUrlPath . toUrlPath . urlEncode .
+       SBS.pack . getASCIIString) path
   describe "inject" $ it "" pending -- specInject
   describe "Query function props" specQuery
 
@@ -27,7 +37,6 @@ specQuery = do
     \kvs -> (HM.fromList . ascii) kvs ==
     (HM.fromList . L.sort . fromQuery .
      success . fromJSON . toJSON . toQuery . ascii) kvs
-
   prop "toQuery/fromQuery" $
     \kvs -> (HM.fromList . ascii) kvs ==
     (HM.fromList . L.sort . fromQuery . toQuery . ascii) kvs

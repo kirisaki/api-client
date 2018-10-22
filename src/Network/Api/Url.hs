@@ -25,7 +25,11 @@ module Network.Api.Url
   , fromQuery
   , fromQueryUtf8
   , fromQueryWith
-     -- * URL encoded string
+    -- * Path
+  , UrlPath
+  , fromUrlPath
+  , toUrlPath
+    -- * URL encoded string
   , UrlEncoded
   , urlEncode
   , urlEncodeUtf8
@@ -40,20 +44,19 @@ import           Network.Api.Parser
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Aeson.Encoding        (text)
-import           Data.Attoparsec.ByteString as A
-import qualified Data.ByteString            as SBS
-import qualified Data.ByteString.Lazy       as LBS
-import           Data.Char                  (ord)
+import           Data.Aeson.Encoding              (text)
+import           Data.Attoparsec.ByteString.Char8 as A
+import qualified Data.ByteString.Char8            as SBS
+import qualified Data.ByteString.Lazy             as LBS
+import           Data.Char
 import           Data.Hashable
-import           Data.HashMap.Strict        as HM
-import qualified Data.List                  as L
-import           Data.Text                  as T
+import           Data.HashMap.Strict              as HM
+import qualified Data.List                        as L
+import           Data.Text                        as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import           Data.Word
-import           Data.Word8
-import qualified Network.HTTP.Types.URI     as U
+import qualified Network.HTTP.Types.URI           as U
 
 -- | Convert Url to 'ByteString'
 fromUrl :: Url -> SBS.ByteString
@@ -98,7 +101,7 @@ toPort n =
   then (Right . Port) n
   else Left "Invalid port number"
 
--- | Wrapped hostname or IP address. IPv6 is valid too.
+-- | Wrapped hostname.
 --   It can't deal with Punycode hostname.
 newtype Host = Host
   { fromHost :: SBS.ByteString
@@ -106,27 +109,36 @@ newtype Host = Host
 
 toHost :: SBS.ByteString -> Either T.Text Host
 toHost t =
-  let
-    p = hostname -- <|> ipv4 <|> ipv6
-  in
-    case feed (parse p t) "" of
-      Done "" h -> Right h
-      _         -> Left "Failed to parse host."
+  case feed (parse hostname t) "" of
+    Done "" h -> Right h
+    _         -> Left "Failed to parse host."
 
 hostname :: Parser Host
-hostname = Host <$>
-  mconcat
-  [ takeWhile1 isAlphaNum
-  , option "" (A.takeWhile (\c ->
-                            isAlphaNum c ||
-                            c == fromIntegral (ord '-'))
-            )
-  , takeWhile1 isAlphaNum
-  ]
+hostname =
+  let
+    label = SBS.append <$> takeWhile1 isAlphaNum <*>
+      option ""
+      ( SBS.append <$>
+        A.takeWhile (\c -> isAlphaNum c || c == '-' ) <*>
+        takeWhile1 isAlphaNum
+      )
+  in
+    Host . SBS.intercalate "." <$> label `sepBy` char '.'
+
+
 -- | Wrapped path.
-newtype UrlPath = UrlPath
-  { unUrlPath :: SBS.ByteString
-  } deriving (Show, Ord, Eq)
+newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Ord, Eq)
+
+fromUrlPath :: UrlPath -> UrlEncoded
+fromUrlPath = UrlEncoded . SBS.intercalate "/" . L.map unUrlEncoded . unUrlPath
+
+toUrlPath :: UrlEncoded -> UrlPath
+toUrlPath =
+  UrlPath . L.map UrlEncoded . L.filter (\p -> p /= "" && p /= "..") . SBS.split '/' . unUrlEncoded
+
+-- | URL with parameters.
+data Piece = Raw UrlEncoded | Param T.Text
+
 
 -- | Collection of URL query parameters.
 --   Behaviour when duplicated query keys at URL is not defined,
