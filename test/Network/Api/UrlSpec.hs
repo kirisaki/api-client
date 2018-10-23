@@ -22,11 +22,11 @@ spec = do
     \t -> t == (urlDecode . urlEncode) t
   prop "toUrlPath/fromUrlPath" $
     \path ->
-      (T.intercalate "/" .
-       L.filter (\p -> p /= "" && p /= "..")  .
-       T.splitOn "/") path
+      ( T.intercalate "/" .
+        L.filter (\p -> p /= "" && p /= ".." && p /= ".")  .
+        T.splitOn "/" . T.intercalate "/") path
       ==
-      (fromUrlPath .toUrlPath) path
+      (fromUrlPath .toUrlPath . T.intercalate "/") path
   describe "inject" $ it "" pending -- specInject
   describe "Query function props" specQuery
 
