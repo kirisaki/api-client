@@ -1,13 +1,8 @@
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeFamilies              #-}
---{-# LANGUAGE PolyKinds #-}
---{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -27,23 +22,23 @@ module Network.Api.Url
     -- * URL query parameter
   , Query
   , toQuery
-  , toQueryUtf8
+  , toQueryBS
   , toQuery'
-  , toQueryUtf8'
+  , toQueryBS'
   , toQueryWith
   , fromQuery
-  , fromQueryUtf8
+  , fromQueryBS
   , fromQueryWith
     -- * Path
   , UrlPath
-  , UrlPathWith
-  , PathLike (..)
+  , fromUrlPath
+  , toUrlPath
     -- * URL encoded string
   , UrlEncoded
   , urlEncode
-  , urlEncodeUtf8
+  , urlEncodeBS
   , urlDecode
-  , urlDecodeUtf8
+  , urlDecodeBS
 
     -- * Utilities
   , inject
@@ -53,19 +48,18 @@ import           Network.Api.Parser
 
 import           Control.Applicative
 import           Data.Aeson
-import           Data.Aeson.Encoding              (text)
-import           Data.Attoparsec.ByteString.Char8 as A
-import qualified Data.ByteString.Char8            as SBS
-import qualified Data.ByteString.Lazy             as LBS
+import           Data.Aeson.Encoding      (text)
+import           Data.Attoparsec.Text     as A
+import qualified Data.ByteString          as SBS
 import           Data.Char
 import           Data.Hashable
-import           Data.HashMap.Strict              as HM
-import qualified Data.List                        as L
-import           Data.Text                        as T
+import           Data.HashMap.Strict      as HM
+import qualified Data.List                as L
+import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import           Data.Word
-import qualified Network.HTTP.Types.URI           as U
+import qualified Network.HTTP.Types.URI   as U
 
 -- | Convert Url to 'ByteString'
 fromUrl :: Url -> SBS.ByteString
@@ -113,10 +107,13 @@ toPort n =
 -- | Wrapped hostname.
 --   It can't deal with Punycode hostname.
 newtype Host = Host
-  { fromHost :: SBS.ByteString
+  { unHost :: SBS.ByteString
   } deriving (Show, Ord, Eq)
 
-toHost :: SBS.ByteString -> Either T.Text Host
+fromHost :: Host -> T.Text
+fromHost = decodeUtf8With ignore . unHost
+
+toHost :: T.Text -> Either T.Text Host
 toHost t =
   case feed (parse hostname t) "" of
     Done "" h -> Right h
@@ -125,38 +122,28 @@ toHost t =
 hostname :: Parser Host
 hostname =
   let
-    label = SBS.append <$> takeWhile1 isAlphaNum <*>
+    label = T.append <$> takeWhile1 isAlphaNum' <*>
       option ""
-      ( SBS.append <$>
-        A.takeWhile (\c -> isAlphaNum c || c == '-' ) <*>
-        takeWhile1 isAlphaNum
+      ( T.append <$>
+        A.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
+        takeWhile1 isAlphaNum'
       )
+    isAlphaNum' c = isAscii c && isAlphaNum c
   in
-    Host . SBS.intercalate "." <$> label `sepBy` char '.'
+    Host . encodeUtf8 . T.intercalate "." <$> label `sepBy` char '.'
 
 
 -- | Wrapped path.
-type UrlPath = UrlPathWith SBS.ByteString
+newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
 
-newtype UrlPathWith a = UrlPathWith { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
+fromUrlPath :: UrlPath -> T.Text
+fromUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
 
-instance PathLike UrlPathWith SBS.ByteString where
-  fromPath = SBS.intercalate "/" . L.map urlDecode . unUrlPath
-  toPath = UrlPathWith . L.map urlEncode . L.filter (\p -> p /= "" && p /= ".." && p /= ".") . SBS.split '/'
-  x </> y = UrlPathWith $ unUrlPath x ++ unUrlPath y
+toUrlPath :: T.Text -> UrlPath
+toUrlPath = UrlPath . L.map urlEncode . L.filter (\p -> p /= "" && p /= ".." && p /= ".") . T.splitOn "/"
 
--- | Operations for path-like object.
-class PathLike (b :: * -> *) a where
-  fromPath :: b a -> a
-  toPath :: a -> b a
-  (</>) :: b a -> b a -> b a
-  infixr 5 </>
-  (</+>) :: b a -> a -> b a
-  infixr 5 </+>
-  (</+>) l = (</>) l . toPath
-  (<+/>) :: a -> b a -> b a
-  infixr 5 <+/>
-  (<+/>) = flip (</+>)
+(</>) :: UrlPath -> UrlPath -> UrlPath
+x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
 
 -- | URL with parameters.
@@ -169,40 +156,40 @@ data Piece = Raw UrlEncoded | Param T.Text
 type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
 
 -- | Construct 'Query' with the supplied mappings.
-toQuery :: [(SBS.ByteString, Maybe SBS.ByteString)] -> Query
-toQuery = toQueryWith id
+toQueryBS :: [(SBS.ByteString, Maybe SBS.ByteString)] -> Query
+toQueryBS = toQueryWith id
 
 -- | Utf-8 version of 'toQuery'
-toQueryUtf8 :: [(T.Text, Maybe T.Text)] -> Query
-toQueryUtf8 = toQueryWith encodeUtf8
+toQuery :: [(T.Text, Maybe T.Text)] -> Query
+toQuery = toQueryWith encodeUtf8
 
 -- | Construct 'Query' without parameter-less field.
-toQuery' :: [(SBS.ByteString, SBS.ByteString)] -> Query
-toQuery' = toQueryWith' id
+toQueryBS' :: [(SBS.ByteString, SBS.ByteString)] -> Query
+toQueryBS' = toQueryWith' id
 
 -- | Utf-8 version of 'toQuery\''
-toQueryUtf8' :: [(T.Text, T.Text)] -> Query
-toQueryUtf8' = toQueryWith' encodeUtf8
+toQuery' :: [(T.Text, T.Text)] -> Query
+toQuery' = toQueryWith' encodeUtf8
 
 -- | To 'Query' with mapping functions.
 toQueryWith :: (a -> SBS.ByteString) -> [(a, Maybe a)] -> Query
-toQueryWith f = HM.fromList . L.map (\(k, v) -> (urlEncode $ f k, urlEncode . f <$> v))
+toQueryWith f = HM.fromList . L.map (\(k, v) -> (urlEncodeBS $ f k, urlEncodeBS . f <$> v))
 
 -- | To 'Query' with mapping functions without parameter-less field.
 toQueryWith' :: (a -> SBS.ByteString) -> [(a, a)] -> Query
-toQueryWith' f = HM.fromList . L.map (\(k, v) -> (urlEncode $ f k, (Just . urlEncode . f) v))
+toQueryWith' f = HM.fromList . L.map (\(k, v) -> (urlEncodeBS $ f k, (Just . urlEncodeBS . f) v))
 
 -- | Return a list of 'ByteString' encoded fields.
-fromQuery :: Query -> [(SBS.ByteString, Maybe SBS.ByteString)]
-fromQuery = fromQueryWith id
+fromQueryBS :: Query -> [(SBS.ByteString, Maybe SBS.ByteString)]
+fromQueryBS = fromQueryWith id
 
 -- | Utf-8 version 'fromQuery'.
-fromQueryUtf8 :: Query -> [(T.Text, Maybe T.Text)]
-fromQueryUtf8 = fromQueryWith (decodeUtf8With ignore)
+fromQuery :: Query -> [(T.Text, Maybe T.Text)]
+fromQuery = fromQueryWith (decodeUtf8With ignore)
 
 -- | From 'Query' with mapping functions.
 fromQueryWith :: (SBS.ByteString -> a)  -> Query -> [(a, Maybe a)]
-fromQueryWith f = L.map (\(k, v) -> (f $ urlDecode k, f . urlDecode <$> v)) . HM.toList
+fromQueryWith f = L.map (\(k, v) -> (f $ urlDecodeBS k, f . urlDecodeBS <$> v)) . HM.toList
 
 -- | URIEncoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
@@ -213,40 +200,40 @@ instance Hashable UrlEncoded where
   hashWithSalt i = hashWithSalt i . unUrlEncoded
 
 instance ToJSON UrlEncoded where
-  toJSON = String . urlDecodeUtf8
+  toJSON = String . urlDecode
 
 instance ToJSONKey UrlEncoded where
   toJSONKey = ToJSONKeyText f g
     where
-      f = urlDecodeUtf8
+      f = urlDecode
       g = text . f
 
 instance FromJSON UrlEncoded where
-  parseJSON = withText "UrlEncoded" (return . urlEncodeUtf8)
+  parseJSON = withText "UrlEncoded" (return . urlEncode)
 
 instance FromJSONKey UrlEncoded where
-  fromJSONKey = FromJSONKeyTextParser (return . urlEncodeUtf8)
+  fromJSONKey = FromJSONKeyTextParser (return . urlEncode)
 
 -- | ByteString text to URI encoded bytestring.
 --   It converts ' '(0x20) to '+'
-urlEncode :: SBS.ByteString -> UrlEncoded
-urlEncode = urlEncodeWith id
+urlEncodeBS :: SBS.ByteString -> UrlEncoded
+urlEncodeBS = urlEncodeWith id
 
 -- | Utf-8 version of 'urlEncode'.
-urlEncodeUtf8 :: T.Text -> UrlEncoded
-urlEncodeUtf8 = urlEncodeWith encodeUtf8
+urlEncode :: T.Text -> UrlEncoded
+urlEncode = urlEncodeWith encodeUtf8
 
 -- | Encode with a encoder.
 urlEncodeWith :: (a -> SBS.ByteString) -> a -> UrlEncoded
 urlEncodeWith enc = UrlEncoded . U.urlEncode True . enc
 
 -- | Decode URI encoded 'Builder' to strict 'ByteString'.
-urlDecode :: UrlEncoded -> SBS.ByteString
-urlDecode = urlDecodeWith id
+urlDecodeBS :: UrlEncoded -> SBS.ByteString
+urlDecodeBS = urlDecodeWith id
 
 -- | Utf-8 version of 'urlDecode'.
-urlDecodeUtf8 :: UrlEncoded -> T.Text
-urlDecodeUtf8 = urlDecodeWith $ decodeUtf8With ignore
+urlDecode :: UrlEncoded -> T.Text
+urlDecode = urlDecodeWith $ decodeUtf8With ignore
 
 -- | Decode with a decoder.
 urlDecodeWith :: (SBS.ByteString -> a) -> UrlEncoded -> a

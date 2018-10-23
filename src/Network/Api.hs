@@ -26,18 +26,16 @@ module Network.Api
     -- * Query
   , Query
   , toQuery
-  , toQueryUtf8
+  , toQueryBS
   , toQuery'
-  , toQueryUtf8'
-  , toQueryWith
+  , toQueryBS'
   , fromQuery
-  , fromQueryUtf8
-  , fromQueryWith
+  , fromQueryBS
   , UrlEncoded
   , urlEncode
-  , urlEncodeUtf8
+  , urlEncodeBS
   , urlDecode
-  , urlDecodeUtf8
+  , urlDecodeBS
 
     -- * Header
   , Header

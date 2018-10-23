@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0114816e766f60a1751389f175122ba930493165f0f79ac05642356bc7137be6
+-- hash: 7d94147a8b33c3bb70b6853db297def641f08ec385b3ad6219e04e3d064b92db
 
 name:           api-client
 version:        0.0.1
@@ -80,6 +80,7 @@ test-suite api-client-test
     , hspec
     , http-client
     , http-types
+    , quickcheck-instances
     , safe-exceptions
     , servant
     , servant-server

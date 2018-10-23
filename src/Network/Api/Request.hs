@@ -108,7 +108,7 @@ buildHttpRequest req service = do
         fromMaybe
         (baseUrl service)
         (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  let q = fromQuery $ reqQuery req
+  let q = fromQueryBS $ reqQuery req
   hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }
 

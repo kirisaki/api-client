@@ -1,52 +1,44 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications  #-}
 module Network.Api.UrlSpec where
 
 import           Network.Api.Url
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
+import           Test.QuickCheck.Instances.Text
 import           TestUtils
 
 import           Data.Aeson
-import qualified Data.ByteString.Char8 as SBS
+import qualified Data.ByteString                as SBS
 import           Data.Char
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.List             as L
-import qualified Data.Text             as T
+import qualified Data.HashMap.Strict            as HM
+import qualified Data.List                      as L
+import qualified Data.Text                      as T
 import           Data.Text.Encoding
 
 spec :: Spec
 spec = do
   prop " urlEncode/urlDecode" $
-    \t -> getASCIIString t == (SBS.unpack . urlDecode . urlEncode . SBS.pack . getASCIIString) t
+    \t -> t == (urlDecode . urlEncode) t
   prop "toUrlPath/fromUrlPath" $
     \path ->
-      (SBS.intercalate "/" .
+      (T.intercalate "/" .
        L.filter (\p -> p /= "" && p /= "..")  .
-       SBS.split '/' .
-       SBS.pack . getASCIIString ) path
+       T.splitOn "/") path
       ==
-      (fromPath . id @UrlPath . toPath .
-       SBS.pack . getASCIIString) path
+      (fromUrlPath .toUrlPath) path
   describe "inject" $ it "" pending -- specInject
   describe "Query function props" specQuery
 
 specQuery :: Spec
 specQuery = do
   prop "toJSON/fromJSON for Query" $
-    \kvs -> (HM.fromList . ascii) kvs ==
+    \kvs -> HM.fromList kvs ==
     (HM.fromList . L.sort . fromQuery .
-     success . fromJSON . toJSON . toQuery . ascii) kvs
+     success . fromJSON . toJSON . toQuery) kvs
   prop "toQuery/fromQuery" $
-    \kvs -> (HM.fromList . ascii) kvs ==
-    (HM.fromList . L.sort . fromQuery . toQuery . ascii) kvs
-  where
-    ascii = L.sort . L.map (
-      \(k, v) -> ( (encodeUtf8 . T.pack . getASCIIString) k
-                 , fmap (encodeUtf8 . T.pack . getASCIIString) v
-                 ) :: (SBS.ByteString, Maybe SBS.ByteString)
-      )
+    \kvs -> HM.fromList kvs ==
+    (HM.fromList . L.sort . fromQuery . toQuery) kvs
 
 specInject :: Spec
 specInject = do
