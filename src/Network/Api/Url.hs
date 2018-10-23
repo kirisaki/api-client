@@ -1,9 +1,13 @@
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
+--{-# LANGUAGE PolyKinds #-}
+--{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -32,8 +36,8 @@ module Network.Api.Url
   , fromQueryWith
     -- * Path
   , UrlPath
-  , fromUrlPath
-  , toUrlPath
+  , UrlPathWith
+  , PathLike (..)
     -- * URL encoded string
   , UrlEncoded
   , urlEncode
@@ -54,11 +58,9 @@ import           Data.Attoparsec.ByteString.Char8 as A
 import qualified Data.ByteString.Char8            as SBS
 import qualified Data.ByteString.Lazy             as LBS
 import           Data.Char
-import           Data.Foldable
 import           Data.Hashable
 import           Data.HashMap.Strict              as HM
 import qualified Data.List                        as L
-import           Data.Proxy
 import           Data.Text                        as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
@@ -134,22 +136,28 @@ hostname =
 
 
 -- | Wrapped path.
-newtype PathLike a = PathLike a deriving (Show, Ord, Eq)
+type UrlPath = UrlPathWith SBS.ByteString
 
-instance forall (a :: [*]) (b :: [*]). Functor PathLike where
-  fmap f (PathLike p) = PathLike (f p)
+newtype UrlPathWith a = UrlPathWith { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
 
-newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Ord, Eq)
+instance PathLike UrlPathWith SBS.ByteString where
+  fromPath = SBS.intercalate "/" . L.map urlDecode . unUrlPath
+  toPath = UrlPathWith . L.map urlEncode . L.filter (\p -> p /= "" && p /= ".." && p /= ".") . SBS.split '/'
+  x </> y = UrlPathWith $ unUrlPath x ++ unUrlPath y
 
-fromPath :: PathLike UrlEncoded -> UrlEncoded
-fromPath = UrlEncoded . SBS.intercalate "/" . L.map unUrlEncoded . unUrlPath
+-- | Operations for path-like object.
+class PathLike (b :: * -> *) a where
+  fromPath :: b a -> a
+  toPath :: a -> b a
+  (</>) :: b a -> b a -> b a
+  infixr 5 </>
+  (</+>) :: b a -> a -> b a
+  infixr 5 </+>
+  (</+>) l = (</>) l . toPath
+  (<+/>) :: a -> b a -> b a
+  infixr 5 <+/>
+  (<+/>) = flip (</+>)
 
-toPath :: UrlEncoded -> PathLike
-toPath =
-  UrlPath . L.map UrlEncoded . L.filter (\p -> p /= "" && p /= "..") . SBS.split '/' . unUrlEncoded
-
---(</>) :: UrlPath -> UrlPath -> UrlPath
---(</>) (UrlPath a) (UrlPath b) = a ++ b
 
 -- | URL with parameters.
 data Piece = Raw UrlEncoded | Param T.Text

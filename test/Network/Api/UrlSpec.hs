@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 module Network.Api.UrlSpec where
 
 import           Network.Api.Url
@@ -26,7 +27,7 @@ spec = do
        SBS.split '/' .
        SBS.pack . getASCIIString ) path
       ==
-      (urlDecode . fromUrlPath . toUrlPath . urlEncode .
+      (fromPath . id @UrlPath . toPath .
        SBS.pack . getASCIIString) path
   describe "inject" $ it "" pending -- specInject
   describe "Query function props" specQuery
