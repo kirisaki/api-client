@@ -137,6 +137,9 @@ fromUserinfo = urlDecode . unUserInfo
 toUserinfo :: T.Text -> Userinfo
 toUserinfo = Userinfo . urlEncode
 
+userinfo' :: Parser Userinfo
+userinfo' = Userinfo . urlEncode . T.pack <$>  many1 pctEncoded
+
 -- | Wrapped hostname.
 --   It can't deal with IPv6 yet.
 newtype Host = Host
@@ -407,6 +410,24 @@ parse' p t = feed (parse p t) ""
 (=|<) :: (Monad m, Alternative m) => (a -> Bool) -> m a -> m a
 f =|< x = x >>= (\x' -> guard (f x') >> return x')
 infixr 1 =|<
+
+pchar :: Parser Char
+pchar = unreserved <|>
+        pctEncoded <|>
+        subDelims <|>
+        char ':' <|>
+        char '@'
+
+unreserved :: Parser Char
+unreserved = satisfy (
+  \c ->
+    isAscii c &&
+    isAlphaNum c ||
+    c == '-' ||
+    c == '.' ||
+    c == '_' ||
+    c == '~'
+  )
 
 subDelims :: Parser Char
 subDelims = satisfy (
