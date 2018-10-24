@@ -16,7 +16,10 @@
 -----------------------------------------------------------------------------
 module Network.Api.Url
   (
+    -- * URL
     Url
+  , parseUrl
+    -- * Authority
   , Port
   , fromPort
   , toPort
@@ -53,10 +56,11 @@ import           Control.Applicative      as AP
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Encoding      (text)
-import           Data.Attoparsec.Text     as A
+import           Data.Attoparsec.Text     as AT
 import qualified Data.ByteString          as SBS
 import           Data.Char
 import           Data.Either
+import           Data.Functor
 import           Data.Hashable
 import           Data.HashMap.Strict      as HM
 import qualified Data.List                as L
@@ -65,21 +69,19 @@ import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import           Data.Word
-import           Dhall                    hiding (inject)
+import           Dhall                    hiding (inject, string)
 import           Dhall.Core
 import qualified Network.HTTP.Types.URI   as U
 
--- | Convert Url to 'ByteString'
-fromUrl :: Url -> SBS.ByteString
-fromUrl (Url s a h p ps) = undefined
+-- | Parse Url
+parseUrl :: T.Text -> Either Text Url
+parseUrl = undefined
 
 -- | Wrapped URL.
 data Url = Url
-  { scheme  :: Scheme
-  , auth    :: Maybe Auth
-  , host    :: Host
-  , port    :: Port
-  , urlPath :: UrlPath
+  { scheme    :: Scheme
+  , authority :: Maybe Authority
+  , urlPath   :: UrlPath
   } deriving (Show, Ord, Eq)
 
 -- | URL scheme.
@@ -93,27 +95,35 @@ fromScheme Http  = "http"
 fromScheme Https = "https"
 
 toScheme :: T.Text -> Either T.Text Scheme
-toScheme "http"  = Right Http
-toScheme "https" = Right Https
-toScheme _       = Left "Invalid scheme"
+toScheme t =
+  case parse' schemeParser t of
+    Done "" s -> Right s
+    _         -> Left "Failed parsing scheme"
+
+schemeParser :: Parser Scheme
+schemeParser =
+  string "http" $> Http <|>
+  string "https" $> Https
+
 
 -- | A pair of user and password.
-newtype Auth = Auth (UrlEncoded, UrlEncoded) deriving (Show, Ord, Eq)
-
--- | Wrapped port number. Port number is limited from 0 to 65535.
---   See <https://tools.ietf.org/html/rfc793#section-3.1 RFC793>.
-newtype Port = Port
-  { fromPort :: Int
+data Authority = Authority
+  { userinfo :: Maybe Userinfo
+  , host     :: Host
+  , port     :: Maybe Port
   } deriving (Show, Ord, Eq)
 
-toPort :: Int -> Either T.Text Port
-toPort n =
-  if 0 <= n && n <= 65535
-  then (Right . Port) n
-  else Left "Invalid port number"
+-- | Wrapped userinfo
+newtype Userinfo = Userinfo { unUserInfo :: UrlEncoded } deriving (Show, Eq, Ord)
+
+fromUserinfo :: Userinfo -> T.Text
+fromUserinfo = urlDecode . unUserInfo
+
+toUserinfo :: T.Text -> Userinfo
+toUserinfo = Userinfo . urlEncode
 
 -- | Wrapped hostname.
---   It can't deal with Punycode hostname.
+--   It can't deal with IPv6 yet.
 newtype Host = Host
   { unHost :: SBS.ByteString
   } deriving (Show, Ord, Eq)
@@ -123,23 +133,45 @@ fromHost = decodeUtf8With ignore . unHost
 
 toHost :: T.Text -> Either T.Text Host
 toHost t =
-  case feed (parse hostname t) "" of
+  case parse' host' t of
     Done "" h -> Right h
     _         -> Left "Failed to parse host."
 
-hostname :: Parser Host
-hostname =
+host' :: Parser Host
+host' =
   let
     label = T.append <$> takeWhile1 isAlphaNum' <*>
       option ""
       ( T.append <$>
-        A.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
+        AT.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
         takeWhile1 isAlphaNum'
       )
     isAlphaNum' c = isAscii c && isAlphaNum c
   in
     Host . encodeUtf8 . T.intercalate "." <$> label `sepBy` char '.'
 
+-- | Wrapped port number. Port number in URL is defined in
+--   <https://tools.ietf.org/html/rfc3986#section-3.2.3 RFC3986> as
+--  `port = *DIGIT`, but port numbers of protocols used
+--  by HTTP (<https://tools.ietf.org/html/rfc793 TCP>
+--  , <https://tools.ietf.org/html/rfc768 UDP>
+--  , <https://tools.ietf.org/html/rfc4960#section-3.1 SCTP>) are
+--  limited from 0 to 65535.
+newtype Port = Port
+  { unPort :: Word16
+  } deriving (Show, Ord, Eq)
+
+fromPort :: Port -> T.Text
+fromPort = T.pack . show . unPort
+
+toPort :: T.Text -> Either T.Text Port
+toPort t =
+  case parse' port' t of
+    Done "" p -> Right p
+    _         -> Left "Invalid port number"
+
+port' :: Parser Port
+port' = Port . fromIntegral <$> ((<= 65535) =|< decimal)
 
 -- | Wrapped path.
 newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
@@ -231,25 +263,33 @@ toPathParams t =
       )
     bracedParam = Param <$> (char '{' *> paramString <* char '}')
     colonParam = Param <$> (char ':' *> paramString)
-    rawPath = Raw <$> (
-      (\p -> guard (notRelative p) >> return p) =<< paramString)
+    rawPath = Raw <$> (notRelative =|< paramString)
     segment = colonParam <|> bracedParam <|> rawPath
     p = PathParams <$> ( many (char '/') *>
                          segment `sepBy` char '/' <* many (char '/')
                        )
   in
-    case feed (parse p t) "" of
+    case parse' p t of
       Done "" ps -> Right ps
       _          -> Left "Failed parsing PathParams"
-
--- Helper
-notRelative :: (IsString a, Eq a) => a -> Bool
-notRelative p = p /= "." && p /= ".." && p /= ""
 
 -- | Collection of URL query parameters.
 --   Behaviour when duplicated query keys at URL is not defined,
 --   but it makes implements complecated, so treat keys as unique in this module.
+--   <https://www.w3.org/MarkUp/HTMLPlus/htmlplus_42.html W3C> details
+--   how query strings to be should deal with.
 type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
+
+-- | Build query string.
+buildQuery :: Query -> T.Text
+buildQuery =
+  let
+    kv (k, v) =
+      case v of
+        Just v  -> k `T.snoc` '=' `T.append` v
+        Nothing -> k
+  in
+    T.intercalate "&" . L.map kv . fromQuery
 
 -- | Construct 'Query' with the supplied mappings.
 toQueryBS :: [(SBS.ByteString, Maybe SBS.ByteString)] -> Query
@@ -342,3 +382,13 @@ urlDecode = urlDecodeWith $ decodeUtf8With ignore
 urlDecodeWith :: (SBS.ByteString -> a) -> UrlEncoded -> a
 urlDecodeWith dec (UrlEncoded t) = (dec . U.urlDecode True) t
 
+-- Helpers
+notRelative :: (IsString a, Eq a) => a -> Bool
+notRelative p = p /= "." && p /= ".." && p /= ""
+
+parse' :: Parser a -> Text -> AT.Result a
+parse' p t = feed (parse p t) ""
+
+(=|<) :: (Monad m, Alternative m) => (a -> Bool) -> m a -> m a
+f =|< x = x >>= (\x' -> guard (f x') >> return x')
+infixr 1 =|<

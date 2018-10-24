@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Network.Api.UrlSpec where
 
 import           Network.Api.Url
@@ -16,11 +17,13 @@ import qualified Data.List                      as L
 import           Data.String                    (IsString)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding
+import           Data.Word
 
 spec :: Spec
 spec = do
-  prop " urlEncode/urlDecode" $
-    \t -> t == (urlDecode . urlEncode) t
+  prop "fromPort/toPort" $
+    \(n :: Word16) ->
+      (T.pack . show) n == (fromPort . right . toPort . T.pack . show) n
   prop "fromUrlPath/toUrlPath" $
     \path ->
       ( T.intercalate "/" .
@@ -43,6 +46,8 @@ spec = do
         (normalize . pathText) p
         ==
         (normalize . fromPathParams . right . toPathParams . pathText) p
+  prop " urlEncode/urlDecode" $
+    \t -> t == (urlDecode . urlEncode) t
   describe "inject" specInject
   describe "Query function props" specQuery
 
