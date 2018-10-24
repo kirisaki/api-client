@@ -20,6 +20,15 @@ module Network.Api.Url
     Url
   , parseUrl
     -- * Authority
+    -- ** Userinfo
+  , Userinfo
+  , fromUserinfo
+  , toUserinfo
+    -- ** Host
+  , Host
+  , fromHost
+  , toHost
+    -- ** Port
   , Port
   , fromPort
   , toPort
@@ -77,6 +86,10 @@ import qualified Network.HTTP.Types.URI   as U
 parseUrl :: T.Text -> Either Text Url
 parseUrl = undefined
 
+--url' :: Parse Url
+--url' = Url <$>
+--       scheme' <*>
+
 -- | Wrapped URL.
 data Url = Url
   { scheme    :: Scheme
@@ -96,15 +109,14 @@ fromScheme Https = "https"
 
 toScheme :: T.Text -> Either T.Text Scheme
 toScheme t =
-  case parse' schemeParser t of
+  case parse' scheme' t of
     Done "" s -> Right s
     _         -> Left "Failed parsing scheme"
 
-schemeParser :: Parser Scheme
-schemeParser =
+scheme' :: Parser Scheme
+scheme' =
   string "http" $> Http <|>
   string "https" $> Https
-
 
 -- | A pair of user and password.
 data Authority = Authority
@@ -112,6 +124,9 @@ data Authority = Authority
   , host     :: Host
   , port     :: Maybe Port
   } deriving (Show, Ord, Eq)
+
+--authority' :: Parser Authority
+--authority' = optional
 
 -- | Wrapped userinfo
 newtype Userinfo = Userinfo { unUserInfo :: UrlEncoded } deriving (Show, Eq, Ord)
@@ -152,7 +167,7 @@ host' =
 
 -- | Wrapped port number. Port number in URL is defined in
 --   <https://tools.ietf.org/html/rfc3986#section-3.2.3 RFC3986> as
---  `port = *DIGIT`, but port numbers of protocols used
+--  @port = *DIGIT@, but port numbers of protocols used
 --  by HTTP (<https://tools.ietf.org/html/rfc793 TCP>
 --  , <https://tools.ietf.org/html/rfc768 UDP>
 --  , <https://tools.ietf.org/html/rfc4960#section-3.1 SCTP>) are
@@ -392,3 +407,27 @@ parse' p t = feed (parse p t) ""
 (=|<) :: (Monad m, Alternative m) => (a -> Bool) -> m a -> m a
 f =|< x = x >>= (\x' -> guard (f x') >> return x')
 infixr 1 =|<
+
+subDelims :: Parser Char
+subDelims = satisfy (
+  \c ->
+    c == '!' ||
+    c == '$' ||
+    c == '&' ||
+    c == '\'' ||
+    c == '(' ||
+    c == ')' ||
+    c == '*' ||
+    c == '+' ||
+    c == ',' ||
+    c == ';' ||
+    c == '='
+  )
+
+pctEncoded :: Parser Char
+pctEncoded =
+  let
+    h = satisfy isHexDigit
+    f x y = chr $ digitToInt x * 0x10 + digitToInt y
+  in
+    char '%' *> (f <$> h <*> h)
