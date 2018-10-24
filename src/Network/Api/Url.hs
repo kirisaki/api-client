@@ -20,6 +20,7 @@ module Network.Api.Url
     Url
   , parseUrl
     -- * Authority
+  , Authority (..)
     -- ** Userinfo
   , Userinfo
   , fromUserinfo
@@ -125,8 +126,12 @@ data Authority = Authority
   , port     :: Maybe Port
   } deriving (Show, Ord, Eq)
 
---authority' :: Parser Authority
---authority' = optional
+authority' :: Parser Authority
+authority' =
+  Authority <$>
+  optional (toUserinfo <$> (T.pack <$> many anyChar) <* char '@') <*>
+  host' <*>
+  optional (char ':' *> port')
 
 -- | Wrapped userinfo
 newtype Userinfo = Userinfo { unUserInfo :: UrlEncoded } deriving (Show, Eq, Ord)
@@ -136,9 +141,6 @@ fromUserinfo = urlDecode . unUserInfo
 
 toUserinfo :: T.Text -> Userinfo
 toUserinfo = Userinfo . urlEncode
-
-userinfo' :: Parser Userinfo
-userinfo' = Userinfo . urlEncode . T.pack <$>  many1 pctEncoded
 
 -- | Wrapped hostname.
 --   It can't deal with IPv6 yet.
