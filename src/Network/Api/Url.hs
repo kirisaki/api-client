@@ -171,8 +171,21 @@ toUrlPathWith enc spl = UrlPath . L.map enc . L.filter notRelative . spl
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
 -- | Inject parameters to a path represented with colon or braces.
-inject :: PathParams -> [(Text, Text)] -> Either Text UrlPath
-inject params args = undefined
+inject :: PathParams -> [(T.Text, T.Text)] -> Either Text UrlPath
+inject (PathParams params) args =
+  let
+    f param =
+      case param of
+        Raw r -> Right $ urlEncode r
+        Param p -> case L.lookup p args of
+          Just a  -> Right $ urlEncode a
+          Nothing -> Left p
+    (ls, rs) = partitionEithers $ L.map f params
+  in
+    if L.null ls
+    then Right $ UrlPath rs
+    else Left $
+         "Lacks following parameters: " `T.append` T.intercalate ", " ls
 
 -- | URL with parameters.
 newtype PathParams = PathParams { unPathParams :: [Piece] } deriving (Show, Eq, Ord)
@@ -231,7 +244,7 @@ toPathParams t =
 
 -- Helper
 notRelative :: (IsString a, Eq a) => a -> Bool
-notRelative p = p /= "." && p /= ".."
+notRelative p = p /= "." && p /= ".." && p /= ""
 
 -- | Collection of URL query parameters.
 --   Behaviour when duplicated query keys at URL is not defined,

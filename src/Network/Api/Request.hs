@@ -100,7 +100,7 @@ buildHttpRequest req service = do
   method <- case lookupMethod req service of
          Just m  -> return m
          Nothing -> throw MethodNotDefined
-  path <- case inject (apiEndpoint method) (reqParams req) of
+  path <- case undefined of
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
   let url =

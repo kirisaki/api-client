@@ -37,17 +37,17 @@ spec = do
           L.map ( T.dropAround (\c -> c == '{' || c == '}') .
                   T.dropWhile (== ':')
                 ) .
-          L.filter (\s -> notRelative s && s /= "") .
+          L.filter notRelative .
           T.splitOn "/"
       in
         (normalize . pathText) p
         ==
         (normalize . fromPathParams . right . toPathParams . pathText) p
-  describe "inject" $ it "" pending -- specInject
+  describe "inject" specInject
   describe "Query function props" specQuery
 
 notRelative :: (IsString a, Eq a) => a -> Bool
-notRelative p = p /= "." && p /= ".."
+notRelative p = p /= "." && p /= ".." && p /= ""
 
 newtype PathText = PathText { pathText :: T.Text } deriving (Show, Ord, Eq)
 instance Arbitrary PathText where
@@ -84,23 +84,24 @@ specQuery = do
 
 specInject :: Spec
 specInject = do
+  let inject' p a = toPathParams p >>= flip inject a
   it "path with colon parameters 1" $
-    inject "/user/:id" [("id", "1234")] `shouldBe` Right "/user/1234"
+    inject' "/user/:id" [("id", "1234")] `shouldBe` (Right . toUrlPath) "/user/1234"
   it "path with colon parameters 2" $
-    inject "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject' "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
   it "path with braced parameters" $
-    inject "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject' "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
   it "parameter between raw paths" $
-    inject "/user/{id}/comment" [("id", "42")] `shouldBe` Right "/user/42/comment"
+    inject' "/user/{id}/comment" [("id", "42")] `shouldBe` (Right . toUrlPath) "/user/42/comment"
   it "parameter between raw paths with trailing slash" $
-    inject "/user/{id}/comment/" [("id", "42")] `shouldBe` Right "/user/42/comment"
+    inject' "/user/{id}/comment/" [("id", "42")] `shouldBe` (Right . toUrlPath) "/user/42/comment"
   it "path without head slash" $
-    inject "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject' "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
   it "parameter in the head without slash" $
-    inject "{id}/" [("id", "42")] `shouldBe` Right "/42"
+    inject' "{id}/" [("id", "42")] `shouldBe` (Right . toUrlPath) "/42"
   it "mixed parameters" $
-    inject "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` Right "/user/42/comment/3"
+    inject' "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
   it "extra parameters" $
-    inject "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` Right "/user/1234"
+    inject' "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` (Right . toUrlPath) "/user/1234"
   it "lack parameters" $
-    inject "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "lack parameters"
+    inject' "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "Lacks following parameters: num"
