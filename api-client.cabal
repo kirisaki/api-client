@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b629d5d78caf08bc86a0456dcd8623af4e232df3a8938ac9a3e50222da25a0d4
+-- hash: d8b3a2e5e076e275e235b93975a524d755bf8364aa3ba6855a18549ee109a3b9
 
 name:           api-client
 version:        0.0.1
@@ -43,6 +43,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , case-insensitive
+    , dhall
     , either
     , hashable
     , http-client
@@ -74,6 +75,7 @@ test-suite api-client-test
     , base
     , bytestring
     , case-insensitive
+    , dhall
     , either
     , hashable
     , hspec

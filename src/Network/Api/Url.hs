@@ -2,6 +2,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
@@ -48,13 +49,14 @@ module Network.Api.Url
   , inject
   ) where
 
-import           Control.Applicative
+import           Control.Applicative      as AP
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Encoding      (text)
 import           Data.Attoparsec.Text     as A
 import qualified Data.ByteString          as SBS
 import           Data.Char
+import           Data.Either
 import           Data.Hashable
 import           Data.HashMap.Strict      as HM
 import qualified Data.List                as L
@@ -63,6 +65,8 @@ import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import           Data.Word
+import           Dhall                    hiding (inject)
+import           Dhall.Core
 import qualified Network.HTTP.Types.URI   as U
 
 -- | Convert Url to 'ByteString'
@@ -166,11 +170,34 @@ toUrlPathWith enc spl = UrlPath . L.map enc . L.filter notRelative . spl
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
+-- | Inject parameters to a path represented with colon or braces.
+inject :: PathParams -> [(Text, Text)] -> Either Text UrlPath
+inject params args = undefined
 
 -- | URL with parameters.
-data Piece = Raw T.Text | Param T.Text deriving (Show, Eq, Ord)
 newtype PathParams = PathParams { unPathParams :: [Piece] } deriving (Show, Eq, Ord)
 
+data Piece = Raw T.Text | Param T.Text deriving (Show, Eq, Ord)
+
+instance ToJSON PathParams where
+  toJSON = String . fromPathParams
+
+instance FromJSON PathParams where
+  parseJSON = withText "PathParams" $
+    \t -> case toPathParams t of
+      Right r -> return r
+      Left l  -> fail $ T.unpack l
+
+instance Interpret PathParams where
+  autoWith _ = Dhall.Type {..}
+    where
+      extract (TextLit (Chunks [] t)) =
+        (either (const Nothing) Just . toPathParams) t
+      extract  _                      = AP.empty
+
+      expected = Text
+
+-- | Build path with colon parameter.
 fromPathParams :: PathParams -> T.Text
 fromPathParams =
   let
@@ -180,6 +207,7 @@ fromPathParams =
   in
     T.intercalate "/" . L.map f . unPathParams
 
+-- | Parse the path.
 toPathParams :: T.Text -> Either T.Text PathParams
 toPathParams t =
   let
@@ -269,6 +297,13 @@ instance FromJSON UrlEncoded where
 instance FromJSONKey UrlEncoded where
   fromJSONKey = FromJSONKeyTextParser (return . urlEncode)
 
+instance Interpret UrlEncoded where
+  autoWith _ = Dhall.Type {..}
+    where
+      extract (TextLit (Chunks [] t)) = pure (urlEncode t)
+      extract  _                      = AP.empty
+      expected = Text
+
 -- | ByteString text to URI encoded bytestring.
 --   It converts ' '(0x20) to '+'
 urlEncodeBS :: SBS.ByteString -> UrlEncoded
@@ -294,6 +329,3 @@ urlDecode = urlDecodeWith $ decodeUtf8With ignore
 urlDecodeWith :: (SBS.ByteString -> a) -> UrlEncoded -> a
 urlDecodeWith dec (UrlEncoded t) = (dec . U.urlDecode True) t
 
--- | Inject parameters to a path represented with colon or braces.
-inject :: Text -> [(Text, Text)] -> Either Text Text
-inject path params = undefined

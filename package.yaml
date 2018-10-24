@@ -21,6 +21,7 @@ dependencies:
 - attoparsec
 - bytestring
 - case-insensitive
+- dhall
 - either
 - hashable
 - http-client
