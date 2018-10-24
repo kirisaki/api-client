@@ -27,7 +27,6 @@ module Network.Api.Request
   ) where
 
 import           Network.Api.Header
-import           Network.Api.Parser
 import           Network.Api.Service
 import           Network.Api.Url
 
@@ -128,22 +127,4 @@ data Token = Token
 
 -- | Look up a method which matchs an API definition.
 lookupMethod :: Request -> Service -> Maybe Method
-lookupMethod req =
-  let
-    parseSegment i = feed (parse segment i) ""
-    matchPath (Done "" (Raw "")) (Done "" (Raw "")) = True
-    matchPath (Done reqRem reqSeg) (Done serRem serSeg) =
-      case (reqSeg, serSeg) of
-        (Param r, Param s) ->
-          r == s &&  matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Raw _, Param _) ->
-          matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Raw r, Raw s) ->
-          r == s && matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Param _, Raw _) ->
-           False
-    matchParh _ _ = False
-  in
-    L.find (\m -> reqMethod req == httpMethod m
-             && matchPath (Done (reqPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
-
+lookupMethod req = undefined

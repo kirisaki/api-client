@@ -13,6 +13,7 @@ import qualified Data.ByteString                as SBS
 import           Data.Char
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List                      as L
+import           Data.String                    (IsString)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding
 
@@ -20,15 +21,56 @@ spec :: Spec
 spec = do
   prop " urlEncode/urlDecode" $
     \t -> t == (urlDecode . urlEncode) t
-  prop "toUrlPath/fromUrlPath" $
+  prop "fromUrlPath/toUrlPath" $
     \path ->
-      (T.intercalate "/" .
-       L.filter (\p -> p /= "" && p /= "..")  .
-       T.splitOn "/") path
+      ( T.intercalate "/" .
+        L.filter notRelative  .
+        T.splitOn "/"
+      ) path
       ==
-      (fromUrlPath .toUrlPath) path
+      (fromUrlPath . toUrlPath) path
+  prop "toPathParams/fromPathParams" $
+    \p ->
+      let
+        normalize =
+          T.intercalate "/" .
+          L.map ( T.dropAround (\c -> c == '{' || c == '}') .
+                  T.dropWhile (== ':')
+                ) .
+          L.filter (\s -> notRelative s && s /= "") .
+          T.splitOn "/"
+      in
+        (normalize . pathText) p
+        ==
+        (normalize . fromPathParams . right . toPathParams . pathText) p
   describe "inject" $ it "" pending -- specInject
   describe "Query function props" specQuery
+
+notRelative :: (IsString a, Eq a) => a -> Bool
+notRelative p = p /= "." && p /= ".."
+
+newtype PathText = PathText { pathText :: T.Text } deriving (Show, Ord, Eq)
+instance Arbitrary PathText where
+  arbitrary =
+    let
+      pathChar = arbitrary
+        `suchThat` (\c ->
+                      c /= '{' &&
+                      c /= '}' &&
+                      c /= '/' &&
+                      c /= ':')
+      paramText = listOf1 pathChar `suchThat` notRelative
+      colonParam = (:) ':' <$> paramText
+      bracedParam = (\s -> "{" ++ s ++ "}") <$> paramText
+      segment = oneof [colonParam, bracedParam, paramText]
+    in
+      PathText . T.intercalate "/" . L.map T.pack  <$> listOf segment
+  shrink (PathText "") = []
+  shrink (PathText path) = ( shrink .
+                             PathText .
+                             T.drop 1 .
+                             T.dropWhile (/= '/')
+                           ) path
 
 specQuery :: Spec
 specQuery = do

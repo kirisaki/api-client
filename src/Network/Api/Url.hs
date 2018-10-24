@@ -33,6 +33,10 @@ module Network.Api.Url
   , UrlPath
   , fromUrlPath
   , toUrlPath
+    -- * Path with parameters
+  , PathParams
+  , fromPathParams
+  , toPathParams
     -- * URL encoded string
   , UrlEncoded
   , urlEncode
@@ -44,9 +48,8 @@ module Network.Api.Url
   , inject
   ) where
 
-import           Network.Api.Parser
-
 import           Control.Applicative
+import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Encoding      (text)
 import           Data.Attoparsec.Text     as A
@@ -55,6 +58,7 @@ import           Data.Char
 import           Data.Hashable
 import           Data.HashMap.Strict      as HM
 import qualified Data.List                as L
+import           Data.String              (IsString)
 import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
@@ -70,7 +74,7 @@ data Url = Url
   { scheme  :: Scheme
   , auth    :: Maybe Auth
   , host    :: Host
-  , port    :: Maybe Port
+  , port    :: Port
   , urlPath :: UrlPath
   } deriving (Show, Ord, Eq)
 
@@ -80,14 +84,14 @@ data Scheme
   | Https
   deriving (Show, Ord, Eq, Read)
 
-fromScheme :: Scheme -> SBS.ByteString
+fromScheme :: Scheme -> T.Text
 fromScheme Http  = "http"
 fromScheme Https = "https"
 
-toScheme :: SBS.ByteString -> Maybe Scheme
-toScheme "http"  = Just Http
-toScheme "https" = Just Https
-toScheme _       = Nothing
+toScheme :: T.Text -> Either T.Text Scheme
+toScheme "http"  = Right Http
+toScheme "https" = Right Https
+toScheme _       = Left "Invalid scheme"
 
 -- | A pair of user and password.
 newtype Auth = Auth (UrlEncoded, UrlEncoded) deriving (Show, Ord, Eq)
@@ -137,18 +141,69 @@ hostname =
 newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
 
 fromUrlPath :: UrlPath -> T.Text
-fromUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
+fromUrlPath = fromUrlPathWith urlDecode (T.intercalate "/")
+
+fromUrlPathBS :: UrlPath -> SBS.ByteString
+fromUrlPathBS = fromUrlPathWith urlDecodeBS (SBS.intercalate "/")
+
+fromUrlPathWith :: (UrlEncoded -> a) ->
+                   ([a] -> a) ->
+                   UrlPath -> a
+fromUrlPathWith dec inter = inter . L.map dec . unUrlPath
 
 toUrlPath :: T.Text -> UrlPath
-toUrlPath = UrlPath . L.map urlEncode . L.filter (\p -> p /= "" && p /= ".." && p /= ".") . T.splitOn "/"
+toUrlPath = toUrlPathWith urlEncode (T.splitOn "/")
+
+toUrlPathBS :: SBS.ByteString -> UrlPath
+toUrlPathBS = toUrlPathWith urlEncodeBS (SBS.split 0x2f)
+
+toUrlPathWith :: (Eq a, IsString a) =>
+                 (a -> UrlEncoded) ->
+                 (a -> [a]) ->
+                 a -> UrlPath
+toUrlPathWith enc spl = UrlPath . L.map enc . L.filter notRelative . spl
 
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
 
 -- | URL with parameters.
-data Piece = Raw UrlEncoded | Param T.Text
+data Piece = Raw T.Text | Param T.Text deriving (Show, Eq, Ord)
+newtype PathParams = PathParams { unPathParams :: [Piece] } deriving (Show, Eq, Ord)
 
+fromPathParams :: PathParams -> T.Text
+fromPathParams =
+  let
+    f x = case x of
+      Raw t   -> t
+      Param t -> ':' `T.cons` t
+  in
+    T.intercalate "/" . L.map f . unPathParams
+
+toPathParams :: T.Text -> Either T.Text PathParams
+toPathParams t =
+  let
+    paramString =
+      takeWhile1
+      ( \c ->
+          c /= '/' && c /= '{' && c /= '}' && c/= ':'
+      )
+    bracedParam = Param <$> (char '{' *> paramString <* char '}')
+    colonParam = Param <$> (char ':' *> paramString)
+    rawPath = Raw <$> (
+      (\p -> guard (notRelative p) >> return p) =<< paramString)
+    segment = colonParam <|> bracedParam <|> rawPath
+    p = PathParams <$> ( many (char '/') *>
+                         segment `sepBy` char '/' <* many (char '/')
+                       )
+  in
+    case feed (parse p t) "" of
+      Done "" ps -> Right ps
+      _          -> Left "Failed parsing PathParams"
+
+-- Helper
+notRelative :: (IsString a, Eq a) => a -> Bool
+notRelative p = p /= "." && p /= ".."
 
 -- | Collection of URL query parameters.
 --   Behaviour when duplicated query keys at URL is not defined,
@@ -191,7 +246,7 @@ fromQuery = fromQueryWith (decodeUtf8With ignore)
 fromQueryWith :: (SBS.ByteString -> a)  -> Query -> [(a, Maybe a)]
 fromQueryWith f = L.map (\(k, v) -> (f $ urlDecodeBS k, f . urlDecodeBS <$> v)) . HM.toList
 
--- | URIEncoded 'ByteString'.
+-- | URL Encoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
   { unUrlEncoded :: SBS.ByteString -- ^ Unwrap encoded string.
   } deriving (Eq, Show, Ord)
