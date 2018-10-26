@@ -74,12 +74,12 @@ data Request = Request
   { reqMethod :: HttpMethod -- ^ HTTP request method.
   , reqPath   :: Text -- ^ Path of API endpoint.
   , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
-  , reqQuery  :: Query -- ^ Query parameters.
+  , reqQuery  :: Maybe Query -- ^ Query parameters.
   , reqHeader :: Header -- ^ Header fields.
   , reqBody   :: SBS.ByteString -- ^ Request body.
   , reqToken  :: Maybe Token -- ^ Token to call API.
   , reqAltUrl :: Maybe Text -- ^ Alternative base URL.
-  } deriving (Eq, Show)
+  }
 
 -- | Response to calling API
 data Response = Response
@@ -107,8 +107,7 @@ buildHttpRequest req service = do
         fromMaybe
         (baseUrl service)
         (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  let q = fromQueryBS $ reqQuery req
-  hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
+  hreq <- C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }
 
 -- | Exceptions

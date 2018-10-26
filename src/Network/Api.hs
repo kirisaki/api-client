@@ -20,22 +20,7 @@ module Network.Api
   , Method(..)
   , HttpMethod(..)
 
-    -- * URL
-  , inject
 
-    -- * Query
-  , Query
-  , toQuery
-  , toQueryBS
-  , toQuery'
-  , toQueryBS'
-  , fromQuery
-  , fromQueryBS
-  , UrlEncoded
-  , urlEncode
-  , urlEncodeBS
-  , urlDecode
-  , urlDecodeBS
 
     -- * Header
   , Header
