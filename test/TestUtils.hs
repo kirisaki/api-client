@@ -57,4 +57,17 @@ instance Arbitrary PathText where
                              T.drop 1 .
                              T.dropWhile (/= '/')
                            ) path
-
+{-
+newtype QueryString = QueryString
+  { queryString :: T.Text
+  } deriving (Show, Ord, Eq)
+instance Arbitrary QueryString where
+  arbitrary =
+    let
+      qchar = arbitrary
+        `suchThat` (\c ->
+                      c /= '/' &&
+                      c /= '}' &&
+                      c /= '/' &&
+                      c /= ':')
+-}

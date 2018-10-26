@@ -36,11 +36,10 @@ spec = do
   prop " urlEncode/urlDecode" $
     \t -> t == (urlDecode . urlEncode) t
   prop "toJSON/fromJSON for Query" $
-    \kvs -> HM.fromList kvs ==
-    (HM.fromList . L.sort . fromQuery .
-     success . fromJSON . toJSON . toQuery) kvs
+    \kvs -> kvs ==
+     (fromQuery .
+     success . fromJSON . toJSON . toQuery') kvs
   prop "toQuery/fromQuery" $
     \kvs -> kvs ==
-    (L.sort . fromQuery . toQuery) kvs
-
+    (fromQuery . toQuery') kvs
 

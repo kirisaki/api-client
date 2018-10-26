@@ -42,10 +42,11 @@ module Network.Api.Url
   , toUrlPath
     -- * URL query parameter
   , Query(..)
+  , buildQuery
+  , parseQuery
   , fromQuery
   , toQuery
-  , listToQuery
-  , listToQuery'
+  , toQuery'
     -- * URL encoded string
   , UrlEncoded
   , urlEncode
@@ -56,26 +57,29 @@ module Network.Api.Url
 
 import           Network.Api.Internal
 
-import           Control.Applicative      as AP
+import           Control.Applicative              as AP
+import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Encoding      (text)
-import           Data.Attoparsec.Text     as AT
-import qualified Data.ByteString          as SBS
+import           Data.Aeson.Encoding              (text)
+import qualified Data.Attoparsec.ByteString.Char8 as ATC
+import           Data.Attoparsec.Text             as AT
+import qualified Data.ByteString                  as SBS
 import           Data.ByteString.Builder
-import qualified Data.ByteString.Lazy     as LBS
+import qualified Data.ByteString.Lazy             as LBS
 import           Data.Char
 import           Data.Functor
 import           Data.Hashable
-import           Data.HashMap.Strict      as HM
-import qualified Data.List                as L
-import           Data.String              (IsString)
-import           Data.Text                as T
+import           Data.HashMap.Strict              as HM
+import qualified Data.List                        as L
+import           Data.String                      (IsString)
+import           Data.Text                        as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
+import qualified Data.Vector                      as V
 import           Data.Word
-import           Dhall                    hiding (string)
+import qualified Dhall                            as DH
 import           Dhall.Core
-import qualified Network.HTTP.Types.URI   as U
+import qualified Network.HTTP.Types.URI           as U
 
 -- | Parse Url
 parseUrl :: T.Text -> Either Text Url
@@ -215,9 +219,19 @@ newtype Query = Query
   { unQuery :: [(UrlEncoded, Maybe UrlEncoded)]
   } deriving (Show, Eq)
 
--- | Build query string from 'Query'.
-fromQuery :: Query -> SBS.ByteString
-fromQuery =
+instance ToJSON Query where
+  toJSON = Array . V.fromList . L.map toJSON . unQuery
+
+instance FromJSON Query where
+  parseJSON = withArray "Query" (pure . toQuery' <=< traverse parseJSON . V.toList)
+
+instance DH.Interpret Query where
+  autoWith _ = toQuery' <$>
+    DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
+
+-- | Build query string as strict 'ByteString' from 'Query'.
+buildQuery :: Query -> SBS.ByteString
+buildQuery =
   LBS.toStrict . toLazyByteString . mconcat .
   L.intersperse (char7 '&') . L.map (
   \case
@@ -228,28 +242,35 @@ fromQuery =
   ) . unQuery
 
 -- | Parse to 'Query'
-toQuery :: T.Text -> Either Text Query
-toQuery t =
-  case parse' query' t of
+parseQuery :: SBS.ByteString -> Either Text Query
+parseQuery t =
+  case ATC.feed (ATC.parse query' t) "" of
     Done "" q -> Right q
     _         -> Left "Failed parsing query"
 
-query' :: Parser Query
+query' :: ATC.Parser Query
 query' =
   let
     field = (,) <$>
-      takeTill (== '=') <* char '=' <*> (Just <$> takeTill (== '&'))
-    paramLess = (, Nothing) <$> takeTill (== '&')
+      ATC.takeTill (== '=') <*
+      ATC.char '=' <*> (Just <$> ATC.takeTill (== '&'))
+    paramLess = (, Nothing) <$> ATC.takeTill (== '&')
+    dec (x, y) = (decodeUtf8With ignore x, decodeUtf8With ignore <$> y)
   in
-    listToQuery' <$> (field <|> paramLess) `sepBy` "&"
+    toQuery' . L.map dec <$>
+    (field <|> paramLess) `ATC.sepBy` "&"
+
+-- | Get list of key-value pair from 'Query'.
+fromQuery :: Query -> [(T.Text, Maybe T.Text)]
+fromQuery = L.map (\(k, v) -> (urlDecode k , urlDecode <$> v)) . unQuery
 
 -- | List of key-value pair to 'Query'.
-listToQuery :: [(T.Text, T.Text)] -> Query
-listToQuery = Query . L.map (\(k, v) -> (urlEncode k, Just . urlEncode $ v))
+toQuery :: [(T.Text, T.Text)] -> Query
+toQuery = Query . L.map (\(k, v) -> (urlEncode k, Just . urlEncode $ v))
 
 -- | With parameterless field.
-listToQuery' :: [(T.Text, Maybe T.Text)] -> Query
-listToQuery' = Query . L.map (\(k, v) -> (urlEncode k, urlEncode <$> v))
+toQuery' :: [(T.Text, Maybe T.Text)] -> Query
+toQuery' = Query . L.map (\(k, v) -> (urlEncode k, urlEncode <$> v))
 
 -- | URL Encoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
@@ -284,13 +305,13 @@ instance ToJSONKey UrlEncoded where
       g = text . f
 
 instance FromJSON UrlEncoded where
-  parseJSON = withText "UrlEncoded" (return . urlEncode)
+  parseJSON = withText "UrlEncoded" (pure . urlEncode)
 
 instance FromJSONKey UrlEncoded where
-  fromJSONKey = FromJSONKeyTextParser (return . urlEncode)
+  fromJSONKey = FromJSONKeyTextParser (pure . urlEncode)
 
-instance Interpret UrlEncoded where
-  autoWith _ = Dhall.Type {..}
+instance DH.Interpret UrlEncoded where
+  autoWith _ = DH.Type {..}
     where
       extract (TextLit (Chunks [] t)) = pure (urlEncode t)
       extract  _                      = AP.empty

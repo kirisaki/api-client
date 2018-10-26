@@ -30,6 +30,7 @@ dependencies:
 - text
 - time
 - unordered-containers
+- vector
 - word8
 
 library:
