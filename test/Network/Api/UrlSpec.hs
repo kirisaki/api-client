@@ -27,7 +27,8 @@ spec = do
       (T.pack . show) n == (fromPort . right . toPort . T.pack . show) n
   prop "fromUrlPath/toUrlPath" $
     \path ->
-      ( T.intercalate "/" .
+      ( T.cons '/' .
+        T.intercalate "/" .
         L.filter notRelative  .
         T.splitOn "/"
       ) path

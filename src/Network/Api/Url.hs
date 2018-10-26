@@ -203,7 +203,7 @@ newtype UrlPath = UrlPath
   } deriving (Show, Eq)
 
 fromUrlPath :: UrlPath -> T.Text
-fromUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
+fromUrlPath = T.cons '/' . T.intercalate "/" . L.map urlDecode . unUrlPath
 
 toUrlPath :: T.Text -> UrlPath
 toUrlPath = UrlPath . L.map urlEncode . L.filter notRelative . T.splitOn "/"
@@ -229,7 +229,7 @@ instance DH.Interpret Query where
   autoWith _ = toQuery' <$>
     DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
 
--- | Build query string as strict 'ByteString' from 'Query'.
+-- | 'Build' of query string.
 buildQuery :: Query -> SBS.ByteString
 buildQuery =
   LBS.toStrict . toLazyByteString . mconcat .
