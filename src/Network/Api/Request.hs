@@ -27,7 +27,6 @@ module Network.Api.Request
   ) where
 
 import           Network.Api.Header
-import           Network.Api.Parser
 import           Network.Api.Service
 import           Network.Api.Url
 
@@ -75,12 +74,12 @@ data Request = Request
   { reqMethod :: HttpMethod -- ^ HTTP request method.
   , reqPath   :: Text -- ^ Path of API endpoint.
   , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
-  , reqQuery  :: Query -- ^ Query parameters.
+  , reqQuery  :: Maybe Query -- ^ Query parameters.
   , reqHeader :: Header -- ^ Header fields.
   , reqBody   :: SBS.ByteString -- ^ Request body.
   , reqToken  :: Maybe Token -- ^ Token to call API.
   , reqAltUrl :: Maybe Text -- ^ Alternative base URL.
-  } deriving (Eq, Show)
+  }
 
 -- | Response to calling API
 data Response = Response
@@ -101,15 +100,14 @@ buildHttpRequest req service = do
   method <- case lookupMethod req service of
          Just m  -> return m
          Nothing -> throw MethodNotDefined
-  path <- case inject (apiEndpoint method) (reqParams req) of
+  path <- case undefined of
             Right r -> return r
             Left l  -> throw $ FailedToInjectUrlParams l
   let url =
         fromMaybe
         (baseUrl service)
         (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  let q = fromQueryBS $ reqQuery req
-  hreq <- C.setQueryString q <$> C.parseUrlThrow (T.unpack url)
+  hreq <- C.parseUrlThrow (T.unpack url)
   return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }
 
 -- | Exceptions
@@ -128,22 +126,4 @@ data Token = Token
 
 -- | Look up a method which matchs an API definition.
 lookupMethod :: Request -> Service -> Maybe Method
-lookupMethod req =
-  let
-    parseSegment i = feed (parse segment i) ""
-    matchPath (Done "" (Raw "")) (Done "" (Raw "")) = True
-    matchPath (Done reqRem reqSeg) (Done serRem serSeg) =
-      case (reqSeg, serSeg) of
-        (Param r, Param s) ->
-          r == s &&  matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Raw _, Param _) ->
-          matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Raw r, Raw s) ->
-          r == s && matchPath (parseSegment reqRem) (parseSegment serRem)
-        (Param _, Raw _) ->
-           False
-    matchParh _ _ = False
-  in
-    L.find (\m -> reqMethod req == httpMethod m
-             && matchPath (Done (reqPath req) (Raw "")) (Done (apiEndpoint m) (Raw ""))) . methods
-
+lookupMethod req = undefined

@@ -1,8 +1,8 @@
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -15,64 +15,86 @@
 -----------------------------------------------------------------------------
 module Network.Api.Url
   (
-    Url
+    -- * URL
+    Url (..)
+  , parseUrl
+    -- * Scheme
+  , Scheme (..)
+  , fromScheme
+  , toScheme
+    -- * Authority
+  , Authority (..)
+    -- ** Userinfo
+  , Userinfo(..)
+  , fromUserinfo
+  , toUserinfo
+    -- ** Host
+  , Host
+  , fromHost
+  , toHost
+    -- ** Port
   , Port
   , fromPort
   , toPort
-    -- * URL query parameter
-  , Query
-  , toQuery
-  , toQueryBS
-  , toQuery'
-  , toQueryBS'
-  , toQueryWith
-  , fromQuery
-  , fromQueryBS
-  , fromQueryWith
     -- * Path
-  , UrlPath
+  , UrlPath(..)
   , fromUrlPath
   , toUrlPath
+    -- * URL query parameter
+  , Query(..)
+  , buildQuery
+  , parseQuery
+  , fromQuery
+  , toQuery
+  , toQuery'
     -- * URL encoded string
   , UrlEncoded
   , urlEncode
   , urlEncodeBS
   , urlDecode
   , urlDecodeBS
-
-    -- * Utilities
-  , inject
   ) where
 
-import           Network.Api.Parser
+import           Network.Api.Internal
 
-import           Control.Applicative
+import           Control.Applicative              as AP
+import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Encoding      (text)
-import           Data.Attoparsec.Text     as A
-import qualified Data.ByteString          as SBS
+import           Data.Aeson.Encoding              (text)
+import qualified Data.Attoparsec.ByteString.Char8 as ATC
+import           Data.Attoparsec.Text             as AT
+import qualified Data.ByteString                  as SBS
+import           Data.ByteString.Builder
+import qualified Data.ByteString.Lazy             as LBS
 import           Data.Char
+import           Data.Functor
 import           Data.Hashable
-import           Data.HashMap.Strict      as HM
-import qualified Data.List                as L
-import           Data.Text                as T
+import           Data.HashMap.Strict              as HM
+import qualified Data.List                        as L
+import           Data.String                      (IsString)
+import           Data.Text                        as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
+import qualified Data.Vector                      as V
 import           Data.Word
-import qualified Network.HTTP.Types.URI   as U
+import qualified Dhall                            as DH
+import           Dhall.Core
+import qualified Network.HTTP.Types.URI           as U
 
--- | Convert Url to 'ByteString'
-fromUrl :: Url -> SBS.ByteString
-fromUrl (Url s a h p ps) = undefined
+-- | Parse Url
+parseUrl :: T.Text -> Either Text Url
+parseUrl = undefined
+
+--url' :: Parse Url
+--url' = Url <$>
+--       scheme' <*>
 
 -- | Wrapped URL.
 data Url = Url
-  { scheme  :: Scheme
-  , auth    :: Maybe Auth
-  , host    :: Host
-  , port    :: Maybe Port
-  , urlPath :: UrlPath
-  } deriving (Show, Ord, Eq)
+  { scheme    :: Scheme
+  , authority :: Authority
+  , urlPath   :: UrlPath
+  }
 
 -- | URL scheme.
 data Scheme
@@ -80,124 +102,198 @@ data Scheme
   | Https
   deriving (Show, Ord, Eq, Read)
 
-fromScheme :: Scheme -> SBS.ByteString
+fromScheme :: Scheme -> T.Text
 fromScheme Http  = "http"
 fromScheme Https = "https"
 
-toScheme :: SBS.ByteString -> Maybe Scheme
-toScheme "http"  = Just Http
-toScheme "https" = Just Https
-toScheme _       = Nothing
+toScheme :: T.Text -> Either T.Text Scheme
+toScheme t =
+  case parse' scheme' t of
+    Done "" s -> Right s
+    _         -> Left "Failed parsing scheme"
+
+scheme' :: Parser Scheme
+scheme' =
+  string "http" $> Http <|>
+  string "https" $> Https
 
 -- | A pair of user and password.
-newtype Auth = Auth (UrlEncoded, UrlEncoded) deriving (Show, Ord, Eq)
+data Authority = Authority
+  { userinfo :: Maybe Userinfo
+  , host     :: Host
+  , port     :: Maybe Port
+  }
 
--- | Wrapped port number. Port number is limited from 0 to 65535.
---   See <https://tools.ietf.org/html/rfc793#section-3.1 RFC793>.
-newtype Port = Port
-  { fromPort :: Int
-  } deriving (Show, Ord, Eq)
+authority' :: Parser Authority
+authority' =
+  Authority <$>
+  optional (toUserinfo <$> (T.pack <$> many anyChar) <* char '@') <*>
+  host' <*>
+  optional (char ':' *> port')
 
-toPort :: Int -> Either T.Text Port
-toPort n =
-  if 0 <= n && n <= 65535
-  then (Right . Port) n
-  else Left "Invalid port number"
+-- | Wrapped userinfo
+newtype Userinfo = Userinfo
+  { unUserInfo :: UrlEncoded
+  } deriving (Show, Eq)
+
+fromUserinfo :: Userinfo -> T.Text
+fromUserinfo = urlDecode . unUserInfo
+
+toUserinfo :: T.Text -> Userinfo
+toUserinfo = Userinfo . urlEncode
 
 -- | Wrapped hostname.
---   It can't deal with Punycode hostname.
-newtype Host = Host
-  { unHost :: SBS.ByteString
-  } deriving (Show, Ord, Eq)
+--   It can't deal with IPv6 yet.
+newtype Host = Host { unHost :: Builder }
+
+instance Show Host where
+  show = T.unpack . decodeUtf8With ignore .
+    LBS.toStrict . toLazyByteString . unHost
+
+instance Eq Host where
+  x == y = toLazyByteString (unHost x) ==
+           toLazyByteString (unHost y)
 
 fromHost :: Host -> T.Text
-fromHost = decodeUtf8With ignore . unHost
+fromHost = decodeUtf8With ignore . LBS.toStrict . toLazyByteString . unHost
 
 toHost :: T.Text -> Either T.Text Host
 toHost t =
-  case feed (parse hostname t) "" of
+  case parse' host' t of
     Done "" h -> Right h
     _         -> Left "Failed to parse host."
 
-hostname :: Parser Host
-hostname =
+host' :: Parser Host
+host' =
   let
     label = T.append <$> takeWhile1 isAlphaNum' <*>
       option ""
       ( T.append <$>
-        A.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
+        AT.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
         takeWhile1 isAlphaNum'
       )
     isAlphaNum' c = isAscii c && isAlphaNum c
   in
-    Host . encodeUtf8 . T.intercalate "." <$> label `sepBy` char '.'
+    Host . byteString . encodeUtf8 . T.intercalate "." <$> label `sepBy` char '.'
 
+-- | Wrapped port number. Port number in URL is defined in
+--   <https://tools.ietf.org/html/rfc3986#section-3.2.3 RFC3986> as
+--  @port = *DIGIT@, but port numbers of protocols used
+--  by HTTP (<https://tools.ietf.org/html/rfc793 TCP>
+--  , <https://tools.ietf.org/html/rfc768 UDP>
+--  , <https://tools.ietf.org/html/rfc4960#section-3.1 SCTP>) are
+--  limited from 0 to 65535.
+newtype Port = Port { unPort :: Word16 } deriving (Show, Eq)
+
+fromPort :: Port -> T.Text
+fromPort = T.pack . show . unPort
+
+toPort :: T.Text -> Either T.Text Port
+toPort t =
+  case parse' port' t of
+    Done "" p -> Right p
+    _         -> Left "Invalid port number"
+
+port' :: Parser Port
+port' = Port . fromIntegral <$> ((<= 65535) =|< decimal)
 
 -- | Wrapped path.
-newtype UrlPath = UrlPath { unUrlPath :: [UrlEncoded] } deriving (Show, Eq, Ord)
+newtype UrlPath = UrlPath
+  { unUrlPath :: [UrlEncoded]
+  } deriving (Show, Eq)
 
 fromUrlPath :: UrlPath -> T.Text
-fromUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
+fromUrlPath = T.cons '/' . T.intercalate "/" . L.map urlDecode . unUrlPath
 
 toUrlPath :: T.Text -> UrlPath
-toUrlPath = UrlPath . L.map urlEncode . L.filter (\p -> p /= "" && p /= ".." && p /= ".") . T.splitOn "/"
+toUrlPath = UrlPath . L.map urlEncode . L.filter notRelative . T.splitOn "/"
 
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
 
--- | URL with parameters.
-data Piece = Raw UrlEncoded | Param T.Text
+-- | Encoded Query string.
+--   <https://www.w3.org/MarkUp/HTMLPlus/htmlplus_42.html W3C> details
+--   how query strings to be should deal with.
+newtype Query = Query
+  { unQuery :: [(UrlEncoded, Maybe UrlEncoded)]
+  } deriving (Show, Eq)
 
+instance ToJSON Query where
+  toJSON = Array . V.fromList . L.map toJSON . unQuery
 
--- | Collection of URL query parameters.
---   Behaviour when duplicated query keys at URL is not defined,
---   but it makes implements complecated, so treat keys as unique in this module.
-type Query = HM.HashMap UrlEncoded (Maybe UrlEncoded)
+instance FromJSON Query where
+  parseJSON = withArray "Query" (pure . toQuery' <=< traverse parseJSON . V.toList)
 
--- | Construct 'Query' with the supplied mappings.
-toQueryBS :: [(SBS.ByteString, Maybe SBS.ByteString)] -> Query
-toQueryBS = toQueryWith id
+instance DH.Interpret Query where
+  autoWith _ = toQuery' <$>
+    DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
 
--- | Utf-8 version of 'toQuery'
-toQuery :: [(T.Text, Maybe T.Text)] -> Query
-toQuery = toQueryWith encodeUtf8
+-- | 'Build' of query string.
+buildQuery :: Query -> SBS.ByteString
+buildQuery =
+  LBS.toStrict . toLazyByteString . mconcat .
+  L.intersperse (char7 '&') . L.map (
+  \case
+    (k, Just v) ->
+      unUrlEncoded k <> char7 '=' <> unUrlEncoded v
+    (k, Nothing) ->
+      unUrlEncoded k
+  ) . unQuery
 
--- | Construct 'Query' without parameter-less field.
-toQueryBS' :: [(SBS.ByteString, SBS.ByteString)] -> Query
-toQueryBS' = toQueryWith' id
+-- | Parse to 'Query'
+parseQuery :: SBS.ByteString -> Either Text Query
+parseQuery t =
+  case ATC.feed (ATC.parse query' t) "" of
+    Done "" q -> Right q
+    _         -> Left "Failed parsing query"
 
--- | Utf-8 version of 'toQuery\''
-toQuery' :: [(T.Text, T.Text)] -> Query
-toQuery' = toQueryWith' encodeUtf8
+query' :: ATC.Parser Query
+query' =
+  let
+    field = (,) <$>
+      ATC.takeTill (== '=') <*
+      ATC.char '=' <*> (Just <$> ATC.takeTill (== '&'))
+    paramLess = (, Nothing) <$> ATC.takeTill (== '&')
+    dec (x, y) = (decodeUtf8With ignore x, decodeUtf8With ignore <$> y)
+  in
+    toQuery' . L.map dec <$>
+    (field <|> paramLess) `ATC.sepBy` "&"
 
--- | To 'Query' with mapping functions.
-toQueryWith :: (a -> SBS.ByteString) -> [(a, Maybe a)] -> Query
-toQueryWith f = HM.fromList . L.map (\(k, v) -> (urlEncodeBS $ f k, urlEncodeBS . f <$> v))
-
--- | To 'Query' with mapping functions without parameter-less field.
-toQueryWith' :: (a -> SBS.ByteString) -> [(a, a)] -> Query
-toQueryWith' f = HM.fromList . L.map (\(k, v) -> (urlEncodeBS $ f k, (Just . urlEncodeBS . f) v))
-
--- | Return a list of 'ByteString' encoded fields.
-fromQueryBS :: Query -> [(SBS.ByteString, Maybe SBS.ByteString)]
-fromQueryBS = fromQueryWith id
-
--- | Utf-8 version 'fromQuery'.
+-- | Get list of key-value pair from 'Query'.
 fromQuery :: Query -> [(T.Text, Maybe T.Text)]
-fromQuery = fromQueryWith (decodeUtf8With ignore)
+fromQuery = L.map (\(k, v) -> (urlDecode k , urlDecode <$> v)) . unQuery
 
--- | From 'Query' with mapping functions.
-fromQueryWith :: (SBS.ByteString -> a)  -> Query -> [(a, Maybe a)]
-fromQueryWith f = L.map (\(k, v) -> (f $ urlDecodeBS k, f . urlDecodeBS <$> v)) . HM.toList
+-- | List of key-value pair to 'Query'.
+toQuery :: [(T.Text, T.Text)] -> Query
+toQuery = Query . L.map (\(k, v) -> (urlEncode k, Just . urlEncode $ v))
 
--- | URIEncoded 'ByteString'.
+-- | With parameterless field.
+toQuery' :: [(T.Text, Maybe T.Text)] -> Query
+toQuery' = Query . L.map (\(k, v) -> (urlEncode k, urlEncode <$> v))
+
+-- | URL Encoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
-  { unUrlEncoded :: SBS.ByteString -- ^ Unwrap encoded string.
-  } deriving (Eq, Show, Ord)
+  { unUrlEncoded :: Builder -- ^ Unwrap encoded string.
+  }
+instance Show UrlEncoded where
+  show = T.unpack . decodeUtf8With ignore .
+    LBS.toStrict . toLazyByteString . unUrlEncoded
+
+instance Eq UrlEncoded where
+  x == y = toLazyByteString (unUrlEncoded x) ==
+           toLazyByteString (unUrlEncoded y)
+
+instance Semigroup UrlEncoded where
+  x <> y = UrlEncoded $ unUrlEncoded x <> unUrlEncoded y
+
+instance Monoid UrlEncoded where
+  mempty = UrlEncoded mempty
+  mappend = (<>)
+  mconcat = L.foldr mappend mempty
 
 instance Hashable UrlEncoded where
-  hashWithSalt i = hashWithSalt i . unUrlEncoded
+  hashWithSalt i = hashWithSalt i . urlDecode
 
 instance ToJSON UrlEncoded where
   toJSON = String . urlDecode
@@ -209,10 +305,17 @@ instance ToJSONKey UrlEncoded where
       g = text . f
 
 instance FromJSON UrlEncoded where
-  parseJSON = withText "UrlEncoded" (return . urlEncode)
+  parseJSON = withText "UrlEncoded" (pure . urlEncode)
 
 instance FromJSONKey UrlEncoded where
-  fromJSONKey = FromJSONKeyTextParser (return . urlEncode)
+  fromJSONKey = FromJSONKeyTextParser (pure . urlEncode)
+
+instance DH.Interpret UrlEncoded where
+  autoWith _ = DH.Type {..}
+    where
+      extract (TextLit (Chunks [] t)) = pure (urlEncode t)
+      extract  _                      = AP.empty
+      expected = Text
 
 -- | ByteString text to URI encoded bytestring.
 --   It converts ' '(0x20) to '+'
@@ -225,7 +328,7 @@ urlEncode = urlEncodeWith encodeUtf8
 
 -- | Encode with a encoder.
 urlEncodeWith :: (a -> SBS.ByteString) -> a -> UrlEncoded
-urlEncodeWith enc = UrlEncoded . U.urlEncode True . enc
+urlEncodeWith enc = UrlEncoded . U.urlEncodeBuilder True . enc
 
 -- | Decode URI encoded 'Builder' to strict 'ByteString'.
 urlDecodeBS :: UrlEncoded -> SBS.ByteString
@@ -237,8 +340,6 @@ urlDecode = urlDecodeWith $ decodeUtf8With ignore
 
 -- | Decode with a decoder.
 urlDecodeWith :: (SBS.ByteString -> a) -> UrlEncoded -> a
-urlDecodeWith dec (UrlEncoded t) = (dec . U.urlDecode True) t
+urlDecodeWith dec = dec . U.urlDecode True .
+  LBS.toStrict . toLazyByteString . unUrlEncoded
 
--- | Inject parameters to a path represented with colon or braces.
-inject :: Text -> [(Text, Text)] -> Either Text Text
-inject path params = undefined

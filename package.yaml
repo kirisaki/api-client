@@ -21,6 +21,7 @@ dependencies:
 - attoparsec
 - bytestring
 - case-insensitive
+- dhall
 - either
 - hashable
 - http-client
@@ -29,6 +30,7 @@ dependencies:
 - text
 - time
 - unordered-containers
+- vector
 - word8
 
 library:
