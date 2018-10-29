@@ -31,14 +31,14 @@ spec = do
         T.intercalate "/" .
         L.filter notRelative  .
         T.splitOn "/"
-      ) path
+      ) (pathText path)
       ==
-      (fromUrlPath . toUrlPath) path
+      (fromUrlPath . right . toUrlPath) (pathText path)
   prop " urlEncode/urlDecode" $
     \t -> t == (urlDecode . urlEncode) t
   prop "toJSON/fromJSON for Query" $
     \kvs -> kvs ==
-     (fromQuery .
+    (fromQuery .
      success . fromJSON . toJSON . toQuery') kvs
   prop "toQuery/fromQuery" $
     \kvs -> kvs ==

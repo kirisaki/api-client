@@ -107,10 +107,7 @@ fromScheme Http  = "http"
 fromScheme Https = "https"
 
 toScheme :: T.Text -> Either T.Text Scheme
-toScheme t =
-  case parse' scheme' t of
-    Done "" s -> Right s
-    _         -> Left "Failed parsing scheme"
+toScheme = parse' scheme' "Failed parsing scheme"
 
 scheme' :: Parser Scheme
 scheme' =
@@ -127,9 +124,9 @@ data Authority = Authority
 authority' :: Parser Authority
 authority' =
   Authority <$>
-  optional (toUserinfo <$> (T.pack <$> many anyChar) <* char '@') <*>
-  host' <*>
-  optional (char ':' *> port')
+  optional (toUserinfo <$> (T.pack <$> many (satisfy (/= '/'))) <* char '@') <*>
+  hostP <*>
+  optional (char ':' *> portP)
 
 -- | Wrapped userinfo
 newtype Userinfo = Userinfo
@@ -158,13 +155,10 @@ fromHost :: Host -> T.Text
 fromHost = decodeUtf8With ignore . LBS.toStrict . toLazyByteString . unHost
 
 toHost :: T.Text -> Either T.Text Host
-toHost t =
-  case parse' host' t of
-    Done "" h -> Right h
-    _         -> Left "Failed to parse host."
+toHost = parse' hostP "Failed to parse host."
 
-host' :: Parser Host
-host' =
+hostP :: Parser Host
+hostP =
   let
     label = T.append <$> takeWhile1 isAlphaNum' <*>
       option ""
@@ -189,13 +183,10 @@ fromPort :: Port -> T.Text
 fromPort = T.pack . show . unPort
 
 toPort :: T.Text -> Either T.Text Port
-toPort t =
-  case parse' port' t of
-    Done "" p -> Right p
-    _         -> Left "Invalid port number"
+toPort = parse' portP "Invalid port number"
 
-port' :: Parser Port
-port' = Port . fromIntegral <$> ((<= 65535) =|< decimal)
+portP :: Parser Port
+portP = Port . fromIntegral <$> ((<= 65535) =|< decimal)
 
 -- | Wrapped path.
 newtype UrlPath = UrlPath
@@ -205,11 +196,14 @@ newtype UrlPath = UrlPath
 fromUrlPath :: UrlPath -> T.Text
 fromUrlPath = T.cons '/' . T.intercalate "/" . L.map urlDecode . unUrlPath
 
-toUrlPath :: T.Text -> UrlPath
-toUrlPath = UrlPath . L.map urlEncode . L.filter notRelative . T.splitOn "/"
+toUrlPath :: T.Text -> Either Text UrlPath
+toUrlPath =  parse' urlPathP "Failed parsing UrlPath."
 
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
+
+urlPathP :: Parser UrlPath
+urlPathP = UrlPath . L.map (urlEncode . T.pack) . L.filter notRelative <$> (many (satisfy (/= '/')) `sepBy` "/")
 
 
 -- | Encoded Query string.
@@ -242,23 +236,22 @@ buildQuery =
   ) . unQuery
 
 -- | Parse to 'Query'
-parseQuery :: SBS.ByteString -> Either Text Query
+parseQuery :: T.Text -> Either Text Query
 parseQuery t =
-  case ATC.feed (ATC.parse query' t) "" of
+  case feed (parse queryP t) "" of
     Done "" q -> Right q
     _         -> Left "Failed parsing query"
 
-query' :: ATC.Parser Query
-query' =
+queryP :: Parser Query
+queryP =
   let
     field = (,) <$>
-      ATC.takeTill (== '=') <*
-      ATC.char '=' <*> (Just <$> ATC.takeTill (== '&'))
-    paramLess = (, Nothing) <$> ATC.takeTill (== '&')
-    dec (x, y) = (decodeUtf8With ignore x, decodeUtf8With ignore <$> y)
+      takeTill (== '=') <*
+      char '=' <*> (Just <$> takeTill (== '&'))
+    paramLess = (, Nothing) <$> takeTill (== '&')
   in
-    toQuery' . L.map dec <$>
-    (field <|> paramLess) `ATC.sepBy` "&"
+    toQuery' <$>
+    (field <|> paramLess) `sepBy` "&"
 
 -- | Get list of key-value pair from 'Query'.
 fromQuery :: Query -> [(T.Text, Maybe T.Text)]

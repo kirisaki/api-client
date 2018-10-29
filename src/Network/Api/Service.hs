@@ -129,7 +129,7 @@ fromPathParams =
 
 -- | Parse the path.
 toPathParams :: T.Text -> Either T.Text PathParams
-toPathParams t =
+toPathParams =
   let
     paramString =
       takeWhile1
@@ -144,6 +144,4 @@ toPathParams t =
                          segment `sepBy` char '/' <* many (char '/')
                        )
   in
-    case parse' p t of
-      Done "" ps -> Right ps
-      _          -> Left "Failed parsing PathParams"
+    parse' p "Failed parsing PathParams"

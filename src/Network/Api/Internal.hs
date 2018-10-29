@@ -21,8 +21,10 @@ import           Data.Text            as T
 notRelative :: (IsString a, Eq a) => a -> Bool
 notRelative p = p /= "." && p /= ".." && p /= ""
 
-parse' :: Parser a -> Text -> Result a
-parse' p t = feed (parse p t) ""
+parse' :: Parser a -> Text -> Text -> Either Text a
+parse' p e t = case feed (parse p t) "" of
+  Done "" r -> Right r
+  _         -> Left e
 
 (=|<) :: (Monad m, Alternative m) => (a -> Bool) -> m a -> m a
 f =|< x = x >>= (\x' -> guard (f x') >> return x')

@@ -34,22 +34,22 @@ specInject :: Spec
 specInject = do
   let inject' p a = toPathParams p >>= flip inject a
   it "path with colon parameters 1" $
-    inject' "/user/:id" [("id", "1234")] `shouldBe` (Right . toUrlPath) "/user/1234"
+    inject' "/user/:id" [("id", "1234")] `shouldBe` toUrlPath "/user/1234"
   it "path with colon parameters 2" $
-    inject' "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
+    inject' "/user/:id/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` toUrlPath "/user/42/comment/3"
   it "path with braced parameters" $
-    inject' "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
+    inject' "/user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` toUrlPath "/user/42/comment/3"
   it "parameter between raw paths" $
-    inject' "/user/{id}/comment" [("id", "42")] `shouldBe` (Right . toUrlPath) "/user/42/comment"
+    inject' "/user/{id}/comment" [("id", "42")] `shouldBe` toUrlPath "/user/42/comment"
   it "parameter between raw paths with trailing slash" $
-    inject' "/user/{id}/comment/" [("id", "42")] `shouldBe` (Right . toUrlPath) "/user/42/comment"
+    inject' "/user/{id}/comment/" [("id", "42")] `shouldBe` toUrlPath "/user/42/comment"
   it "path without head slash" $
-    inject' "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
+    inject' "user/{id}/comment/{num}" [("id", "42"), ("num", "3")] `shouldBe` toUrlPath "/user/42/comment/3"
   it "parameter in the head without slash" $
-    inject' "{id}/" [("id", "42")] `shouldBe` (Right . toUrlPath) "/42"
+    inject' "{id}/" [("id", "42")] `shouldBe` toUrlPath "/42"
   it "mixed parameters" $
-    inject' "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` (Right . toUrlPath) "/user/42/comment/3"
+    inject' "/user/{id}/comment/:num" [("id", "42"), ("num", "3")] `shouldBe` toUrlPath "/user/42/comment/3"
   it "extra parameters" $
-    inject' "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` (Right . toUrlPath) "/user/1234"
+    inject' "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` toUrlPath "/user/1234"
   it "lack parameters" $
     inject' "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "Lacks following parameters: num"
