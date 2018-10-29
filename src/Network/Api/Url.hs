@@ -19,13 +19,13 @@ module Network.Api.Url
     Url (..)
   , parseUrl
     -- * Scheme
-  , Scheme (..)
+  , Scheme
   , fromScheme
   , toScheme
     -- * Authority
   , Authority (..)
     -- ** Userinfo
-  , Userinfo(..)
+  , Userinfo
   , fromUserinfo
   , toUserinfo
     -- ** Host
@@ -37,11 +37,12 @@ module Network.Api.Url
   , fromPort
   , toPort
     -- * Path
-  , UrlPath(..)
+  , UrlPath
   , fromUrlPath
   , toUrlPath
+  , toUrlPathFromList
     -- * URL query parameter
-  , Query(..)
+  , Query
   , buildQuery
   , parseQuery
   , fromQuery
@@ -94,7 +95,7 @@ data Url = Url
   { scheme    :: Scheme
   , authority :: Authority
   , urlPath   :: UrlPath
-  }
+  } deriving (Show, Eq)
 
 -- | URL scheme.
 data Scheme
@@ -119,10 +120,16 @@ data Authority = Authority
   { userinfo :: Maybe Userinfo
   , host     :: Host
   , port     :: Maybe Port
-  }
+  } deriving (Show, Eq)
 
-authority' :: Parser Authority
-authority' =
+fromAuthoriry :: Authority -> T.Text
+fromAuthoriry auth =
+  maybe "" ((`T.snoc` '@') . fromUserinfo) (userinfo auth) `T.append`
+  fromHost (host auth) `T.append`
+  maybe "" (T.cons '@' . fromPort) (port auth)
+
+authorityP :: Parser Authority
+authorityP =
   Authority <$>
   optional (toUserinfo <$> (T.pack <$> many (satisfy (/= '/'))) <* char '@') <*>
   hostP <*>
@@ -198,6 +205,9 @@ fromUrlPath = T.cons '/' . T.intercalate "/" . L.map urlDecode . unUrlPath
 
 toUrlPath :: T.Text -> Either Text UrlPath
 toUrlPath =  parse' urlPathP "Failed parsing UrlPath."
+
+toUrlPathFromList :: [UrlEncoded] -> UrlPath
+toUrlPathFromList =  UrlPath
 
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y

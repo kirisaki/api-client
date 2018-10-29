@@ -3,6 +3,7 @@ module TestUtils where
 
 import           Data.Aeson           as AE
 import           Data.Attoparsec.Text as AT
+import           Data.Char
 import qualified Data.List            as L
 import qualified Data.Text            as T
 import           Network.Api.Internal
@@ -57,17 +58,27 @@ instance Arbitrary PathText where
                              T.drop 1 .
                              T.dropWhile (/= '/')
                            ) path
-{-
-newtype QueryString = QueryString
-  { queryString :: T.Text
-  } deriving (Show, Ord, Eq)
-instance Arbitrary QueryString where
+newtype Unreserved = Unreserved
+  { unreserved :: Char } deriving (Show, Eq, Ord)
+instance Arbitrary Unreserved where
+  arbitrary = Unreserved <$> arbitrary `suchThat`
+    (\c -> isAlphaNum c ||
+           c == '-' ||
+           c == '.' ||
+           c == '_' ||
+           c == '~')
+
+newtype SubDelims = SubDelims
+  { subDelims :: Char } deriving (Show, Eq, Ord)
+instance Arbitrary SubDelims where
+  arbitrary = SubDelims <$> elements ['!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=']
+
+newtype PctEncoded = PctEncoded
+  { pctEncoded :: T.Text } deriving (Show, Eq, Ord)
+instance Arbitrary PctEncoded where
   arbitrary =
     let
-      qchar = arbitrary
-        `suchThat` (\c ->
-                      c /= '/' &&
-                      c /= '}' &&
-                      c /= '/' &&
-                      c /= ':')
--}
+      pct = elements "%"
+      hex = elements "0123456789ABCDEF"
+    in
+      (\a b c -> PctEncoded $ T.pack [a, b, c]) <$> pct <*> hex <*> hex

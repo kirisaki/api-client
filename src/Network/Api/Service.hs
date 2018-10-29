@@ -89,7 +89,7 @@ inject (PathParams params) args =
     (ls, rs) = partitionEithers $ L.map f params
   in
     if L.null ls
-    then Right $ UrlPath rs
+    then Right $ toUrlPathFromList rs
     else Left $
          "Lacks following parameters: " `T.append` T.intercalate ", " ls
 
