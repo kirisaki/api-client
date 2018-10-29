@@ -24,6 +24,8 @@ module Network.Api.Url
   , toScheme
     -- * Authority
   , Authority (..)
+  , fromAuthority
+  , toAuthority
     -- ** Userinfo
   , Userinfo
   , fromUserinfo
@@ -122,20 +124,23 @@ data Authority = Authority
   , port     :: Maybe Port
   } deriving (Show, Eq)
 
-fromAuthoriry :: Authority -> T.Text
-fromAuthoriry auth =
-  maybe "" ((`T.snoc` '@') . fromUserinfo) (userinfo auth) `T.append`
-  fromHost (host auth) `T.append`
-  maybe "" (T.cons '@' . fromPort) (port auth)
+fromAuthority :: Authority -> T.Text
+fromAuthority auth =
+  maybe "" ((`T.snoc` '@') . fromUserinfo) (userinfo auth) <>
+  fromHost (host auth) <>
+  maybe "" (T.cons ':' . fromPort) (port auth)
+
+toAuthority :: T.Text -> Either Text Authority
+toAuthority = parse' authorityP "Failed parsing Authority"
 
 authorityP :: Parser Authority
 authorityP =
   Authority <$>
-  optional (toUserinfo <$> (T.pack <$> many (satisfy (/= '/'))) <* char '@') <*>
+  optional (toUserinfo . T.pack <$> (many (satisfy (/= '@')) <* char '@')) <*>
   hostP <*>
   optional (char ':' *> portP)
 
--- | Wrapped userinfo
+  -- | Wrapped userinfo
 newtype Userinfo = Userinfo
   { unUserInfo :: UrlEncoded
   } deriving (Show, Eq)
@@ -147,7 +152,7 @@ toUserinfo :: T.Text -> Userinfo
 toUserinfo = Userinfo . urlEncode
 
 -- | Wrapped hostname.
---   It can't deal with IPv6 yet.
+--   It can't deal with IPv6 and Internationalized Domain Name yet.
 newtype Host = Host { unHost :: Builder }
 
 instance Show Host where
@@ -169,13 +174,12 @@ hostP =
   let
     label = T.append <$> takeWhile1 isAlphaNum' <*>
       option ""
-      ( T.append <$>
-        AT.takeWhile (\c -> isAlphaNum' c || c == '-' ) <*>
+      ( AT.takeWhile (\c -> isAscii c && (isAlphaNum c || c == '-') ) <>
         takeWhile1 isAlphaNum'
       )
     isAlphaNum' c = isAscii c && isAlphaNum c
   in
-    Host . byteString . encodeUtf8 . T.intercalate "." <$> label `sepBy` char '.'
+    Host . encodeUtf8Builder . T.intercalate "." <$> label `sepBy` char '.'
 
 -- | Wrapped port number. Port number in URL is defined in
 --   <https://tools.ietf.org/html/rfc3986#section-3.2.3 RFC3986> as

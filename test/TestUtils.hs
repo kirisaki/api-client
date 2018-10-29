@@ -6,6 +6,7 @@ import           Data.Attoparsec.Text as AT
 import           Data.Char
 import qualified Data.List            as L
 import qualified Data.Text            as T
+import           Data.Traversable
 import           Network.Api.Internal
 import           Test.QuickCheck
 
@@ -58,27 +59,4 @@ instance Arbitrary PathText where
                              T.drop 1 .
                              T.dropWhile (/= '/')
                            ) path
-newtype Unreserved = Unreserved
-  { unreserved :: Char } deriving (Show, Eq, Ord)
-instance Arbitrary Unreserved where
-  arbitrary = Unreserved <$> arbitrary `suchThat`
-    (\c -> isAlphaNum c ||
-           c == '-' ||
-           c == '.' ||
-           c == '_' ||
-           c == '~')
 
-newtype SubDelims = SubDelims
-  { subDelims :: Char } deriving (Show, Eq, Ord)
-instance Arbitrary SubDelims where
-  arbitrary = SubDelims <$> elements ['!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=']
-
-newtype PctEncoded = PctEncoded
-  { pctEncoded :: T.Text } deriving (Show, Eq, Ord)
-instance Arbitrary PctEncoded where
-  arbitrary =
-    let
-      pct = elements "%"
-      hex = elements "0123456789ABCDEF"
-    in
-      (\a b c -> PctEncoded $ T.pack [a, b, c]) <$> pct <*> hex <*> hex
