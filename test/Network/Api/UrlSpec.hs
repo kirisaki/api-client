@@ -25,6 +25,9 @@ import           Data.Word
 
 spec :: Spec
 spec = do
+  prop "parseUrl/buildUrl" $
+    \url ->
+      urlText url `shouldBe` (buildUrl . right . parseUrl . urlText) url
   prop "fromAuthority/toAuthority" $
     \auth ->
       authorityText auth `shouldBe` (fromAuthority . right . toAuthority . authorityText) auth
@@ -111,3 +114,15 @@ instance Arbitrary AuthorityText where
       pt = Just . T.cons ':' <$> arbitraryPortText
     in
       (\p a s -> AuthorityText . fromJust $ p <> Just a <> s) <$> ut <*> ht <*> pt
+
+newtype UrlText = UrlText
+  { urlText :: T.Text } deriving (Show, Eq, Ord)
+
+instance Arbitrary UrlText where
+  arbitrary =
+    let
+      st = Just <$> elements ["", "http://", "https://"]
+      at = authorityText <$> arbitrary
+      pt = Just . ("/" <>) . pathText <$> arbitrary
+    in
+      (\p a s -> UrlText . fromJust $ p <> Just a <> s) <$> st <*> at <*> pt

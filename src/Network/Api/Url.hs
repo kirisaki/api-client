@@ -18,6 +18,7 @@ module Network.Api.Url
     -- * URL
     Url (..)
   , parseUrl
+  , buildUrl
     -- * Scheme
   , Scheme
   , fromScheme
@@ -56,45 +57,57 @@ module Network.Api.Url
   , urlEncodeBS
   , urlDecode
   , urlDecodeBS
+  , urlP
   ) where
 
 import           Network.Api.Internal
 
-import           Control.Applicative              as AP
+import           Control.Applicative      as AP
 import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Encoding              (text)
-import qualified Data.Attoparsec.ByteString.Char8 as ATC
-import           Data.Attoparsec.Text             as AT
-import qualified Data.ByteString                  as SBS
+import           Data.Aeson.Encoding      (text)
+import           Data.Attoparsec.Text     as AT
+import qualified Data.ByteString          as SBS
 import           Data.ByteString.Builder
-import qualified Data.ByteString.Lazy             as LBS
+import qualified Data.ByteString.Lazy     as LBS
 import           Data.Char
 import           Data.Functor
 import           Data.Hashable
-import           Data.HashMap.Strict              as HM
-import qualified Data.List                        as L
-import           Data.String                      (IsString)
-import           Data.Text                        as T
+import           Data.HashMap.Strict      as HM
+import qualified Data.List                as L
+import           Data.String              (IsString)
+import           Data.Text                as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
-import qualified Data.Vector                      as V
+import qualified Data.Vector              as V
 import           Data.Word
-import qualified Dhall                            as DH
+import qualified Dhall                    as DH
 import           Dhall.Core
-import qualified Network.HTTP.Types.URI           as U
+import qualified Network.HTTP.Types.URI   as U
 
 -- | Parse Url
 parseUrl :: T.Text -> Either Text Url
-parseUrl = undefined
+parseUrl = parse' urlP "Failed parsing Url"
 
---url' :: Parse Url
---url' = Url <$>
---       scheme' <*>
+buildUrl :: Url -> T.Text
+buildUrl (Url s a p) =
+  case s of
+    Just s' -> fromScheme s' <> "://"
+    Nothing -> ""
+  <>
+  fromAuthority a <>
+  fromUrlPath p
+
+
+urlP :: Parser Url
+urlP = Url <$>
+       optional (schemeP <* string "://") <*>
+       authorityP <*>
+       option (UrlPath []) (char '/' *> urlPathP)
 
 -- | Wrapped URL.
 data Url = Url
-  { scheme    :: Scheme
+  { scheme    :: Maybe Scheme
   , authority :: Authority
   , urlPath   :: UrlPath
   } deriving (Show, Eq)
@@ -110,10 +123,10 @@ fromScheme Http  = "http"
 fromScheme Https = "https"
 
 toScheme :: T.Text -> Either T.Text Scheme
-toScheme = parse' scheme' "Failed parsing scheme"
+toScheme = parse' schemeP "Failed parsing scheme"
 
-scheme' :: Parser Scheme
-scheme' =
+schemeP :: Parser Scheme
+schemeP =
   string "http" $> Http <|>
   string "https" $> Https
 
