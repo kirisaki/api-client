@@ -25,25 +25,26 @@ module Network.Api.Url
   , toScheme
     -- * Authority
   , Authority (..)
-  , fromAuthority
-  , toAuthority
+  , buildAuthority
+  , parseAuthority
     -- ** Userinfo
   , Userinfo
   , fromUserinfo
   , toUserinfo
     -- ** Host
   , Host
-  , fromHost
-  , toHost
+  , buildHost
+  , parseHost
     -- ** Port
   , Port
   , fromPort
   , toPort
     -- * Path
   , UrlPath
-  , fromUrlPath
+  , buildUrlPath
+  , parseUrlPath
   , toUrlPath
-  , toUrlPathFromList
+  , fromUrlPath
     -- * URL query parameter
   , Query
   , buildQuery
@@ -90,26 +91,31 @@ parseUrl :: T.Text -> Either Text Url
 parseUrl = parse' urlP "Failed parsing Url"
 
 buildUrl :: Url -> T.Text
-buildUrl (Url s a p) =
-  case s of
-    Just s' -> fromScheme s' <> "://"
-    Nothing -> ""
+buildUrl (Url s a p q) =
+  fromScheme s <> "://" <>
+  buildAuthority a <> "/" <>
+  if L.null (unUrlPath p)
+  then ""
+  else buildUrlPath p
   <>
-  fromAuthority a <>
-  fromUrlPath p
+  if L.null (unQuery q)
+  then ""
+  else "?" <> buildQuery q
 
 
 urlP :: Parser Url
 urlP = Url <$>
-       optional (schemeP <* string "://") <*>
+       (schemeP <* string "://") <*>
        authorityP <*>
-       option (UrlPath []) (char '/' *> urlPathP)
+       option (UrlPath []) (char '/' *> urlPathP) <*>
+       option (Query []) (char '?' *> queryP)
 
 -- | Wrapped URL.
 data Url = Url
-  { scheme    :: Maybe Scheme
+  { scheme    :: Scheme
   , authority :: Authority
   , urlPath   :: UrlPath
+  , query     :: Query
   } deriving (Show, Eq)
 
 -- | URL scheme.
@@ -127,8 +133,8 @@ toScheme = parse' schemeP "Failed parsing scheme"
 
 schemeP :: Parser Scheme
 schemeP =
-  string "http" $> Http <|>
-  string "https" $> Https
+  (string "https" $> Https) <|>
+  (string "http" $> Http)
 
 -- | A pair of user and password.
 data Authority = Authority
@@ -137,14 +143,14 @@ data Authority = Authority
   , port     :: Maybe Port
   } deriving (Show, Eq)
 
-fromAuthority :: Authority -> T.Text
-fromAuthority auth =
+buildAuthority :: Authority -> T.Text
+buildAuthority auth =
   maybe "" ((`T.snoc` '@') . fromUserinfo) (userinfo auth) <>
-  fromHost (host auth) <>
+  buildHost (host auth) <>
   maybe "" (T.cons ':' . fromPort) (port auth)
 
-toAuthority :: T.Text -> Either Text Authority
-toAuthority = parse' authorityP "Failed parsing Authority"
+parseAuthority :: T.Text -> Either Text Authority
+parseAuthority = parse' authorityP "Failed parsing Authority"
 
 authorityP :: Parser Authority
 authorityP =
@@ -176,11 +182,11 @@ instance Eq Host where
   x == y = toLazyByteString (unHost x) ==
            toLazyByteString (unHost y)
 
-fromHost :: Host -> T.Text
-fromHost = decodeUtf8With ignore . LBS.toStrict . toLazyByteString . unHost
+buildHost :: Host -> T.Text
+buildHost = decodeUtf8With ignore . LBS.toStrict . toLazyByteString . unHost
 
-toHost :: T.Text -> Either T.Text Host
-toHost = parse' hostP "Failed to parse host."
+parseHost :: T.Text -> Either T.Text Host
+parseHost = parse' hostP "Failed to parse host."
 
 hostP :: Parser Host
 hostP =
@@ -217,14 +223,21 @@ newtype UrlPath = UrlPath
   { unUrlPath :: [UrlEncoded]
   } deriving (Show, Eq)
 
-fromUrlPath :: UrlPath -> T.Text
-fromUrlPath = T.cons '/' . T.intercalate "/" . L.map urlDecode . unUrlPath
+buildUrlPath :: UrlPath -> T.Text
+buildUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
 
-toUrlPath :: T.Text -> Either Text UrlPath
-toUrlPath =  parse' urlPathP "Failed parsing UrlPath."
+urlPathBuilderBS :: UrlPath -> Builder
+urlPathBuilderBS = mconcat . L.intersperse (char7 '/') .
+  L.map unUrlEncoded . unUrlPath
 
-toUrlPathFromList :: [UrlEncoded] -> UrlPath
-toUrlPathFromList =  UrlPath
+parseUrlPath :: T.Text -> Either Text UrlPath
+parseUrlPath =  parse' urlPathP "Failed parsing UrlPath."
+
+toUrlPath :: [T.Text] -> UrlPath
+toUrlPath = UrlPath . L.map urlEncode
+
+fromUrlPath :: UrlPath -> [T.Text]
+fromUrlPath = L.map urlDecode . unUrlPath
 
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
@@ -251,9 +264,18 @@ instance DH.Interpret Query where
     DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
 
 -- | 'Build' of query string.
-buildQuery :: Query -> SBS.ByteString
-buildQuery =
-  LBS.toStrict . toLazyByteString . mconcat .
+buildQuery :: Query -> T.Text
+buildQuery = T.intercalate "&" . L.map (
+  \case
+    (k, Just v) ->
+      urlDecode k <> "=" <> urlDecode v
+    (k, Nothing) ->
+      urlDecode k
+  ) . unQuery
+
+queryBuilderBS :: Query -> Builder
+queryBuilderBS =
+  mconcat .
   L.intersperse (char7 '&') . L.map (
   \case
     (k, Just v) ->
@@ -294,7 +316,7 @@ toQuery' = Query . L.map (\(k, v) -> (urlEncode k, urlEncode <$> v))
 
 -- | URL Encoded 'ByteString'.
 newtype UrlEncoded = UrlEncoded
-  { unUrlEncoded :: Builder -- ^ Unwrap encoded string.
+  { unUrlEncoded :: Builder
   }
 instance Show UrlEncoded where
   show = T.unpack . decodeUtf8With ignore .

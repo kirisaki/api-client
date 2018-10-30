@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Network.Api.UrlSpec where
@@ -27,13 +28,13 @@ spec :: Spec
 spec = do
   prop "parseUrl/buildUrl" $
     \url ->
-      urlText url `shouldBe` (buildUrl . right . parseUrl . urlText) url
-  prop "fromAuthority/toAuthority" $
+      (buildUrl . right . parseUrl . urlText) url `shouldBe` urlText url
+  prop "parseAuthority/buildAuthority" $
     \auth ->
-      authorityText auth `shouldBe` (fromAuthority . right . toAuthority . authorityText) auth
-  prop "fromHost/toHost" $
+      authorityText auth `shouldBe` (buildAuthority . right . parseAuthority . authorityText) auth
+  prop "parseHost/buildHost" $
     \h ->
-      hostText h `shouldBe` (fromHost . right . toHost . hostText) h
+      hostText h `shouldBe` (buildHost . right . parseHost . hostText) h
   prop "fromUrlPath/toUrlPath" $
     \path ->
       ( T.cons '/' .
@@ -41,16 +42,19 @@ spec = do
         L.filter notRelative  .
         T.splitOn "/"
       ) (pathText path)
-      ==
-      (fromUrlPath . right . toUrlPath) (pathText path)
+      `shouldBe`
+      (buildUrlPath . right . parseUrlPath) (pathText path)
   prop " urlEncode/urlDecode" $
-    \t -> t == (urlDecode . urlEncode) t
+    \t -> t `shouldBe` (urlDecode . urlEncode) t
   prop "toJSON/fromJSON for Query" $
-    \kvs -> kvs ==
+    \kvs -> kvs `shouldBe`
     (fromQuery .
      success . fromJSON . toJSON . toQuery') kvs
+  prop "parseQuery/buildQuery" $
+    \q -> queryText q `shouldBe`
+    (buildQuery . right . parseQuery . queryText) q
   prop "toQuery/fromQuery" $
-    \kvs -> kvs ==
+    \kvs -> kvs `shouldBe`
     (fromQuery . toQuery') kvs
 
 arbitraryUnreserved :: Gen Char
@@ -115,14 +119,49 @@ instance Arbitrary AuthorityText where
     in
       (\p a s -> AuthorityText . fromJust $ p <> Just a <> s) <$> ut <*> ht <*> pt
 
+newtype UrlPathText = UrlPathText { urlPathText :: T.Text } deriving (Show, Ord, Eq)
+instance Arbitrary UrlPathText where
+  arbitrary =
+    let
+      pathChar = arbitrary
+        `suchThat` (/= '/')
+      segment = listOf1 pathChar `suchThat` notRelative
+    in
+      UrlPathText . T.intercalate "/" . L.map T.pack  <$> listOf segment
+  shrink (UrlPathText "") = []
+  shrink (UrlPathText path) = ( shrink .
+                             UrlPathText .
+                             T.drop 1 .
+                             T.dropWhile (/= '/')
+                           ) path
+
+newtype QueryText = QueryText
+  { queryText :: T.Text } deriving (Show, Eq, Ord)
+
+instance Arbitrary QueryText where
+  arbitrary =
+    let
+      qt = T.pack <$> listOf1 (arbitrary
+        `suchThat` (\c -> c /= '=' && c /= '&' && c /= '/'))
+      k = qt
+      v = Just <$> qt
+      kvs = listOf $ liftArbitrary2 k v
+    in
+      QueryText . T.intercalate "&" . L.map (
+      \case
+        (k', Just v') -> k' <> "=" <> v'
+        (k', Nothing) -> k'
+      ) <$> kvs
 newtype UrlText = UrlText
   { urlText :: T.Text } deriving (Show, Eq, Ord)
 
 instance Arbitrary UrlText where
   arbitrary =
     let
-      st = Just <$> elements ["", "http://", "https://"]
+      st = Just <$> elements ["http://", "https://"]
       at = authorityText <$> arbitrary
-      pt = Just . ("/" <>) . pathText <$> arbitrary
+      pt = Just . ("/" <>) . urlPathText <$> arbitrary
+      qt = Just . ("?" <>) . queryText <$> arbitrary
     in
-      (\p a s -> UrlText . fromJust $ p <> Just a <> s) <$> st <*> at <*> pt
+      (\s a p q -> UrlText . fromJust $ s <> Just a <> p <> q) <$>
+      st <*> at <*> pt <*> qt

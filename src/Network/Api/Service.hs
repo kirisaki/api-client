@@ -82,14 +82,14 @@ inject (PathParams params) args =
   let
     f param =
       case param of
-        Raw r -> Right $ urlEncode r
+        Raw r -> Right r
         Param p -> case L.lookup p args of
-          Just a  -> Right $ urlEncode a
+          Just a  -> Right a
           Nothing -> Left p
     (ls, rs) = partitionEithers $ L.map f params
   in
     if L.null ls
-    then Right $ toUrlPathFromList rs
+    then Right $ toUrlPath rs
     else Left $
          "Lacks following parameters: " `T.append` T.intercalate ", " ls
 
