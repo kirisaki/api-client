@@ -132,6 +132,25 @@ data Url = Url
   , query     :: Query
   } deriving (Show, Eq)
 
+instance ToJSON Url where
+  toJSON = String . buildUrl
+
+instance FromJSON Url where
+  parseJSON = withText "URL" $
+    \t ->
+      case parseUrl t of
+        Right u -> pure u
+        Left l  -> fail $ T.unpack l
+
+instance DH.Interpret Url where
+  autoWith _ = DH.Type {..}
+    where
+      extract (TextLit (Chunks [] t)) =
+        (either (const Nothing) Just . parseUrl) t
+      extract  _                      = AP.empty
+
+      expected = Text
+
 -- | URL scheme.
 data Scheme
   = Http
