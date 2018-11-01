@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -56,7 +57,7 @@ import           Network.HTTP.Types.URI  hiding (Query)
 --   It's also possible to give a token explicitly.
 call :: C.Manager -> Request -> Service -> IO Response
 call man req ser = do
-  hreq <- buildHttpRequest req ser
+  hreq <- undefined
   res <- C.httpLbs hreq man
   return $ Response
     { resStatus = C.responseStatus res
@@ -95,9 +96,13 @@ attachToken :: MonadThrow m => Request -> Service -> Token -> m Request
 attachToken tok req ser = undefined
 
 -- | Build a Network.HTTP.Client.Request from Request.
-buildHttpRequest :: MonadThrow m => Request -> Service -> m C.Request
-buildHttpRequest req service = undefined
-
+buildHttpRequest :: Request -> Service -> Either Text C.Request
+buildHttpRequest req service = do
+  let url = fromMaybe (baseUrl service) (reqAltUrl req)
+  apiMethod <- lookupMethod req service
+  let requestMethod = httpMethod apiMethod
+  path <- inject (apiEndpoint apiMethod) (reqParams req)
+  return undefined
 -- | Exceptions
 data ClientException
   = MethodNotDefined
@@ -113,7 +118,7 @@ data Token = Token
   } deriving (Eq, Show)
 
 -- | Look up a method which matchs an API definition.
-lookupMethod :: Request -> Service -> Maybe Method
+lookupMethod :: Request -> Service -> Either Text Method
 lookupMethod req service =
   let
     matchParams :: PathParams -> PathParams -> Bool
@@ -133,5 +138,5 @@ lookupMethod req service =
       ) (methods service)
   in
     case matchedMethod of
-      Just m  -> Just m { apiEndpoint = reqPath req }
-      Nothing -> Nothing
+      Just m  -> Right m { apiEndpoint = reqPath req }
+      Nothing -> Left "Method not found."

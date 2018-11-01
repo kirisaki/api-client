@@ -7,10 +7,15 @@ import           Network.Api.Service
 import           Network.Api.Url
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
+import           Test.QuickCheck
+import           Test.QuickCheck.Instances.Natural
+
 import           TestUtils
 
-import qualified Data.List             as L
-import qualified Data.Text             as T
+import           Data.Aeson
+import qualified Data.List                         as L
+import qualified Data.Text                         as T
+import           Numeric.Natural
 
 spec :: Spec
 spec = do
@@ -28,6 +33,12 @@ spec = do
         (normalize . pathText) p
         ==
         (normalize . buildPathParams . right . parsePathParams . pathText) p
+  prop "HttpVersion from/to JSON" $
+    \(major, minor) ->
+      let
+        version = HttpVersion major minor
+      in
+        (success . fromJSON . toJSON) version `shouldBe` version
   describe "inject" specInject
 
 specInject :: Spec
@@ -53,3 +64,5 @@ specInject = do
     inject' "/user/{id}" [("id", "1234"), ("nyaan", "hoge")] `shouldBe` parseUrlPath "/user/1234"
   it "lack parameters" $
     inject' "/user/:id/comment/:num" [("id", "42")] `shouldBe` Left "Lacks following parameters: num"
+
+

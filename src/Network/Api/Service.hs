@@ -16,6 +16,7 @@ module Network.Api.Service
     -- * Service
     Service(..)
   , Method(..)
+  , HttpVersion(..)
   , HttpMethod(..)
     -- * Path with parameters
   , inject
@@ -32,24 +33,49 @@ import           Network.Api.Url
 import           Control.Applicative  as AP
 import           Data.Aeson
 import           Data.Attoparsec.Text
+import           Data.Char
 import           Data.Either
 import           Data.List            as L
 import qualified Data.Text            as T
+import           Data.Word
 import qualified Dhall                as DH
-import           Dhall.Core
+import qualified Dhall.Core           as DHC
 import           GHC.Generics
+import           Numeric.Natural
 
 -- | API Definition
 data Service = Service
   { baseUrl           :: Url
   , methods           :: [Method]
+  , httpVersion       :: HttpVersion
   , defaultHeader     :: Header
   , tokenHeaderName   :: Maybe FieldName
   , tokenHeaderPrefix :: Maybe T.Text
   , tokenQueryName    :: Maybe T.Text
   } deriving (Eq, Show, Generic)
+
 instance FromJSON Service
 instance ToJSON Service
+
+-- | Version of HTTP.
+data HttpVersion = HttpVersion Natural Natural deriving (Eq, Ord)
+
+instance Show HttpVersion where
+  show (HttpVersion major minor) = show major ++ "." ++ show minor
+
+instance ToJSON HttpVersion where
+  toJSON = String . T.pack . show
+
+instance FromJSON HttpVersion where
+  parseJSON =
+    let
+      p = HttpVersion <$> decimal <* char '.' <*> decimal
+    in
+      withText "HttpVersion" $
+      \t ->
+        case feed (parse p t) "" of
+          Done "" v -> pure v
+          _         -> AP.empty
 
 -- | API definition
 data Method = Method
@@ -111,11 +137,11 @@ instance FromJSON PathParams where
 instance DH.Interpret PathParams where
   autoWith _ = DH.Type {..}
     where
-      extract (TextLit (Chunks [] t)) =
+      extract (DHC.TextLit (DHC.Chunks [] t)) =
         (either (const Nothing) Just . parsePathParams) t
       extract  _                      = AP.empty
 
-      expected = Text
+      expected = DHC.Text
 
 -- | Build path with colon parameter.
 buildPathParams :: PathParams -> T.Text

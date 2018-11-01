@@ -24,7 +24,8 @@ import qualified Data.Text                as T
 import qualified Network.HTTP.Client      as C
 import qualified Network.HTTP.Types       as HT
 import           Network.Wai.Handler.Warp (run)
-import           Servant                  hiding (GET, POST, toHeader)
+import           Servant                  hiding (GET, HttpVersion (..), POST,
+                                           toHeader)
 import           Servant.Server           (serve)
 
 type Api =
@@ -58,6 +59,7 @@ sampleService = Service
                   , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
                   , Method POST (PathParams [Raw "token"])
                   ]
+                , httpVersion = HttpVersion 2 0
                 , defaultHeader =
                     right $ toHeader [("User-Agent", "Netscape Navigator")]
                 , tokenHeaderName = Just . right $ fieldName "Authorization"
@@ -140,7 +142,7 @@ specAttachToken = do
 specLookupMethod :: Spec
 specLookupMethod = do
   let lookupMethod' m p = lookupMethod (defReq { reqMethod = m, reqPath = PathParams p }) sampleService
-  let method m p = Just (Method m (PathParams p))
+  let method m p = Right (Method m (PathParams p))
   it "Just a URL." $
     lookupMethod' POST [Raw "token"] `shouldBe` method POST [Raw "token"]
   it "With a simple parameter." $
@@ -148,9 +150,9 @@ specLookupMethod = do
   it "Overwrite a parameter." $
     lookupMethod' GET [Raw "user", Raw "123"] `shouldBe` method GET [Raw "user", Raw "123"]
   it "Wrong HTTP method." $
-    lookupMethod' POST [Raw "user", Param "id"] `shouldBe` Nothing
+    lookupMethod' POST [Raw "user", Param "id"] `shouldBe` Left "Method not found."
   it "'user' should be Raw." $
-    lookupMethod' GET [Param "user", Param "id"] `shouldBe` Nothing
+    lookupMethod' GET [Param "user", Param "id"] `shouldBe` Left "Method not found."
   it "Not found." $
-    lookupMethod' GET [Raw "nyaan"] `shouldBe` Nothing
+    lookupMethod' GET [Raw "nyaan"] `shouldBe` Left "Method not found."
 
