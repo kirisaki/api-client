@@ -155,7 +155,7 @@ parseAuthority = parse' authorityP "Failed parsing Authority"
 authorityP :: Parser Authority
 authorityP =
   Authority <$>
-  optional (toUserinfo . T.pack <$> (many (satisfy (/= '@')) <* char '@')) <*>
+  optional (toUserinfo . T.pack <$> (many (satisfy (\c -> c /= '@' && c /= '/' )) <* char '@')) <*>
   hostP <*>
   optional (char ':' *> portP)
 

@@ -37,8 +37,7 @@ spec = do
       hostText h `shouldBe` (buildHost . right . parseHost . hostText) h
   prop "fromUrlPath/toUrlPath" $
     \path ->
-      ( T.cons '/' .
-        T.intercalate "/" .
+      ( T.intercalate "/" .
         L.filter notRelative  .
         T.splitOn "/"
       ) (pathText path)
