@@ -90,6 +90,7 @@ import qualified Network.HTTP.Types.URI   as U
 parseUrl :: T.Text -> Either Text Url
 parseUrl = parse' urlP "Failed parsing Url"
 
+-- | Build URL as 'Text'
 buildUrl :: Url -> T.Text
 buildUrl (Url s a p q) =
   fromScheme s <> "://" <>
@@ -101,6 +102,19 @@ buildUrl (Url s a p q) =
   if L.null (unQuery q)
   then ""
   else "?" <> buildQuery q
+
+-- | Build URL as 'ByteString'
+buildUrlBS :: Url -> SBS.ByteString
+buildUrlBS (Url s a p q) =
+  LBS.toStrict . toLazyByteString $
+  (string7 . T.unpack . fromScheme) s <>
+  byteString "://" <>
+  authorityBuilderBS a <>
+  char7 '/' <>
+  urlPathBuilderBS p <>
+  if L.null (unQuery q)
+  then mempty
+  else char7 '?' <> queryBuilderBS q
 
 
 urlP :: Parser Url
@@ -152,6 +166,17 @@ buildAuthority auth =
 parseAuthority :: T.Text -> Either Text Authority
 parseAuthority = parse' authorityP "Failed parsing Authority"
 
+authorityBuilderBS :: Authority -> Builder
+authorityBuilderBS (Authority u h p) =
+  case u of
+    Just u' -> unUrlEncoded (unUserinfo u') <> char7 '@'
+    Nothing -> mempty
+  <>
+  unHost h <>
+  case p of
+    Just p' -> char7 ':' <> (string7 . show . unPort) p'
+    Nothing -> mempty
+
 authorityP :: Parser Authority
 authorityP =
   Authority <$>
@@ -161,11 +186,11 @@ authorityP =
 
   -- | Wrapped userinfo
 newtype Userinfo = Userinfo
-  { unUserInfo :: UrlEncoded
+  { unUserinfo :: UrlEncoded
   } deriving (Show, Eq)
 
 fromUserinfo :: Userinfo -> T.Text
-fromUserinfo = urlDecode . unUserInfo
+fromUserinfo = urlDecode . unUserinfo
 
 toUserinfo :: T.Text -> Userinfo
 toUserinfo = Userinfo . urlEncode
