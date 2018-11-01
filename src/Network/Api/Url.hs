@@ -15,18 +15,19 @@
 -----------------------------------------------------------------------------
 module Network.Api.Url
   (
-    -- * URL
+    -- * Url
     Url (..)
   , parseUrl
   , buildUrl
+  , buildUrlBS
     -- * Scheme
   , Scheme
   , fromScheme
   , toScheme
     -- * Authority
   , Authority (..)
-  , buildAuthority
   , parseAuthority
+  , buildAuthority
     -- ** Userinfo
   , Userinfo
   , fromUserinfo
@@ -58,7 +59,8 @@ module Network.Api.Url
   , urlEncodeBS
   , urlDecode
   , urlDecodeBS
-  , urlP
+    -- * Unwrapper for build request
+
   ) where
 
 import           Network.Api.Internal
@@ -166,8 +168,8 @@ toScheme = parse' schemeP "Failed parsing scheme"
 
 schemeP :: Parser Scheme
 schemeP =
-  (string "https" $> Https) <|>
-  (string "http" $> Http)
+  (asciiCI "https" $> Https) <|>
+  (asciiCI "http" $> Http)
 
 -- | A pair of user and password.
 data Authority = Authority

@@ -21,8 +21,8 @@ module Network.Api.Service
   , inject
   , PathParams(..)
   , Piece(..)
-  , fromPathParams
-  , toPathParams
+  , buildPathParams
+  , parsePathParams
   ) where
 
 import           Network.Api.Header
@@ -35,27 +35,27 @@ import           Data.Attoparsec.Text
 import           Data.Either
 import           Data.List            as L
 import qualified Data.Text            as T
-import           Dhall                hiding (inject)
+import qualified Dhall                as DH
 import           Dhall.Core
 import           GHC.Generics
 
 -- | API Definition
 data Service = Service
-  { baseUrl           :: T.Text
+  { baseUrl           :: Url
   , methods           :: [Method]
   , defaultHeader     :: Header
   , tokenHeaderName   :: Maybe FieldName
   , tokenHeaderPrefix :: Maybe T.Text
   , tokenQueryName    :: Maybe T.Text
-  } deriving (Eq, Show, Ord, Generic)
+  } deriving (Eq, Show, Generic)
 instance FromJSON Service
 instance ToJSON Service
 
 -- | API definition
 data Method = Method
   { httpMethod  :: HttpMethod
-  , apiEndpoint :: T.Text
-  } deriving (Eq, Show, Ord, Read, Generic)
+  , apiEndpoint :: PathParams
+  } deriving (Eq, Show, Generic)
 
 instance FromJSON Method
 instance ToJSON Method
@@ -77,7 +77,7 @@ instance FromJSON HttpMethod
 instance ToJSON HttpMethod
 
 -- | Inject parameters to a path represented with colon or braces.
-inject :: PathParams -> [(T.Text, T.Text)] -> Either Text UrlPath
+inject :: PathParams -> [(T.Text, T.Text)] -> Either T.Text UrlPath
 inject (PathParams params) args =
   let
     f param =
@@ -100,26 +100,26 @@ newtype PathParams = PathParams
 data Piece = Raw T.Text | Param T.Text deriving (Show, Eq, Ord)
 
 instance ToJSON PathParams where
-  toJSON = String . fromPathParams
+  toJSON = String . buildPathParams
 
 instance FromJSON PathParams where
   parseJSON = withText "PathParams" $
-    \t -> case toPathParams t of
+    \t -> case parsePathParams t of
       Right r -> return r
       Left l  -> fail $ T.unpack l
 
-instance Interpret PathParams where
-  autoWith _ = Dhall.Type {..}
+instance DH.Interpret PathParams where
+  autoWith _ = DH.Type {..}
     where
       extract (TextLit (Chunks [] t)) =
-        (either (const Nothing) Just . toPathParams) t
+        (either (const Nothing) Just . parsePathParams) t
       extract  _                      = AP.empty
 
       expected = Text
 
 -- | Build path with colon parameter.
-fromPathParams :: PathParams -> T.Text
-fromPathParams =
+buildPathParams :: PathParams -> T.Text
+buildPathParams =
   let
     f x = case x of
       Raw t   -> t
@@ -128,8 +128,8 @@ fromPathParams =
     T.intercalate "/" . L.map f . unPathParams
 
 -- | Parse the path.
-toPathParams :: T.Text -> Either T.Text PathParams
-toPathParams =
+parsePathParams :: T.Text -> Either T.Text PathParams
+parsePathParams =
   let
     paramString =
       takeWhile1

@@ -28,11 +28,13 @@ import           Servant                  hiding (GET, POST, toHeader)
 import           Servant.Server           (serve)
 
 type Api =
-  "user" :> Capture "id" Integer :> Get '[JSON] Value :<|>
-  "user" :> Capture "id" Integer :> "comment" :> Capture "article" Integer :> ReqBody '[JSON] Value :> PostNoContent '[JSON] () :<|>
-  "token" :> ReqBody '[JSON] Value :> Post '[JSON] Value :<|>
-  "hoge" :> Get '[JSON] Value :<|>
-  EmptyAPI
+  "api" :>
+  ( "user" :> Capture "id" Integer :> Get '[JSON] Value :<|>
+    "user" :> Capture "id" Integer :> "comment" :> Capture "article" Integer :> ReqBody '[JSON] Value :> PostNoContent '[JSON] () :<|>
+    "token" :> ReqBody '[JSON] Value :> Post '[JSON] Value :<|>
+    "hoge" :> Get '[JSON] Value :<|>
+    EmptyAPI
+  )
 
 server :: Server Api
 server = getUser :<|> postComment :<|> getToken :<|> hoge :<|> emptyServer
@@ -50,11 +52,11 @@ mockServer = run mockServerPort (serve (Proxy @ Api) server)
 
 sampleService :: Service
 sampleService = Service
-                { baseUrl = "https://example.net"
+                { baseUrl = right $ parseUrl "https://example.net/api"
                 , methods =
-                  [ Method GET "user/:id"
-                  , Method POST "user/{id}/comment/{article}"
-                  , Method POST "token"
+                  [ Method GET  (PathParams [Raw "user", Param "id"])
+                  , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+                  , Method POST (PathParams [Raw "token"])
                   ]
                 , defaultHeader =
                     right $ toHeader [("User-Agent", "Netscape Navigator")]
@@ -66,7 +68,7 @@ sampleService = Service
 defReq :: Request
 defReq = Request
          { reqMethod = GET
-         , reqPath = ""
+         , reqPath = PathParams []
          , reqParams = []
          , reqQuery = Nothing
          , reqHeader = HM.empty
@@ -96,6 +98,7 @@ spec :: Spec
 spec = do
   describe "call" specCall
   describe "attachToken" specAttachToken
+  describe "lookupMethod" specLookupMethod
 
 
 withMock :: ((C.Manager, ThreadId) -> IO ()) -> IO ()
@@ -110,13 +113,12 @@ withMock = bracket (
 specCall :: Spec
 specCall = around withMock $ do
   let service = sampleService
-        { baseUrl = "http://localhost:"
-          `T.append` (T.pack . show) mockServerPort
+        { baseUrl = right . parseUrl $ "http://localhost:" <> (T.pack . show) mockServerPort
         }
   it "normal case" $ \(man, _) -> do
     let req = defReq
           { reqMethod = GET
-          , reqPath = "user/:id"
+          , reqPath = PathParams [Raw "user", Param "id"]
           , reqParams = [("id", "1234")]
           }
     res <- call man req service
@@ -134,4 +136,21 @@ specAttachToken = do
     pending
   it "Request has token, but service doesn't requires it."
     pending
+
+specLookupMethod :: Spec
+specLookupMethod = do
+  let lookupMethod' m p = lookupMethod (defReq { reqMethod = m, reqPath = PathParams p }) sampleService
+  let method m p = Just (Method m (PathParams p))
+  it "Just a URL." $
+    lookupMethod' POST [Raw "token"] `shouldBe` method POST [Raw "token"]
+  it "With a simple parameter." $
+    lookupMethod' GET [Raw "user", Param "id"] `shouldBe` method GET [Raw "user", Param "id"]
+  it "Overwrite a parameter." $
+    lookupMethod' GET [Raw "user", Raw "123"] `shouldBe` method GET [Raw "user", Raw "123"]
+  it "Wrong HTTP method." $
+    lookupMethod' POST [Raw "user", Param "id"] `shouldBe` Nothing
+  it "'user' should be Raw." $
+    lookupMethod' GET [Param "user", Param "id"] `shouldBe` Nothing
+  it "Not found." $
+    lookupMethod' GET [Raw "nyaan"] `shouldBe` Nothing
 

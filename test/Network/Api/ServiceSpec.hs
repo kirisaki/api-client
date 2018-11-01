@@ -14,7 +14,7 @@ import qualified Data.Text             as T
 
 spec :: Spec
 spec = do
-  prop "toPathParams/fromPathParams" $
+  prop "parsePathParams/buildPathParams" $
     \p ->
       let
         normalize =
@@ -27,12 +27,12 @@ spec = do
       in
         (normalize . pathText) p
         ==
-        (normalize . fromPathParams . right . toPathParams . pathText) p
+        (normalize . buildPathParams . right . parsePathParams . pathText) p
   describe "inject" specInject
 
 specInject :: Spec
 specInject = do
-  let inject' p a = toPathParams p >>= flip inject a
+  let inject' p a = parsePathParams p >>= flip inject a
   it "path with colon parameters 1" $
     inject' "/user/:id" [("id", "1234")] `shouldBe` parseUrlPath "/user/1234"
   it "path with colon parameters 2" $

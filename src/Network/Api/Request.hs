@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -72,13 +72,13 @@ callWith man req ser = undefined
 -- | Request to call API.
 data Request = Request
   { reqMethod :: HttpMethod -- ^ HTTP request method.
-  , reqPath   :: Text -- ^ Path of API endpoint.
+  , reqPath   :: PathParams -- ^ Path of API endpoint.
   , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
   , reqQuery  :: Maybe Query -- ^ Query parameters.
   , reqHeader :: Header -- ^ Header fields.
   , reqBody   :: SBS.ByteString -- ^ Request body.
   , reqToken  :: Maybe Token -- ^ Token to call API.
-  , reqAltUrl :: Maybe Text -- ^ Alternative base URL.
+  , reqAltUrl :: Maybe Url -- ^ Alternative base URL.
   }
 
 -- | Response to calling API
@@ -96,19 +96,7 @@ attachToken tok req ser = undefined
 
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: MonadThrow m => Request -> Service -> m C.Request
-buildHttpRequest req service = do
-  method <- case lookupMethod req service of
-         Just m  -> return m
-         Nothing -> throw MethodNotDefined
-  path <- case undefined of
-            Right r -> return r
-            Left l  -> throw $ FailedToInjectUrlParams l
-  let url =
-        fromMaybe
-        (baseUrl service)
-        (T.stripSuffix "/" (baseUrl service)) `T.append` path
-  hreq <- C.parseUrlThrow (T.unpack url)
-  return $ hreq { C.requestHeaders = fromHeader $ reqHeader req `HM.union` defaultHeader service }
+buildHttpRequest req service = undefined
 
 -- | Exceptions
 data ClientException
@@ -126,4 +114,24 @@ data Token = Token
 
 -- | Look up a method which matchs an API definition.
 lookupMethod :: Request -> Service -> Maybe Method
-lookupMethod req = undefined
+lookupMethod req service =
+  let
+    matchParams :: PathParams -> PathParams -> Bool
+    matchParams (PathParams reqParams) (PathParams serviceParams) =
+      L.length reqParams == L.length serviceParams &&
+      L.all
+       (\case
+           (Raw r, Raw s) -> r == s
+           (Raw _, Param _) -> True
+           (Param r, Raw _) -> False
+           (Param r, Param s) -> r == s
+       ) (L.zip reqParams serviceParams)
+    matchedMethod = L.find
+      (\method ->
+          reqMethod req == httpMethod method &&
+          reqPath req `matchParams` apiEndpoint method
+      ) (methods service)
+  in
+    case matchedMethod of
+      Just m  -> Just m { apiEndpoint = reqPath req }
+      Nothing -> Nothing
