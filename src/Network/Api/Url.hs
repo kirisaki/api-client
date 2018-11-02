@@ -21,7 +21,7 @@ module Network.Api.Url
   , buildUrl
   , buildUrlBS
     -- * Scheme
-  , Scheme
+  , Scheme(..)
   , fromScheme
   , toScheme
     -- * Authority
@@ -35,14 +35,17 @@ module Network.Api.Url
     -- ** Host
   , Host
   , buildHost
+  , buildHostBS
   , parseHost
     -- ** Port
   , Port
+  , unPort
   , fromPort
   , toPort
     -- * Path
   , UrlPath
   , buildUrlPath
+  , buildUrlPathBS
   , parseUrlPath
   , toUrlPath
   , fromUrlPath
@@ -205,7 +208,7 @@ authorityP =
   hostP <*>
   optional (char ':' *> portP)
 
-  -- | Wrapped userinfo
+-- | Wrapped userinfo. It doesn't work yet.
 newtype Userinfo = Userinfo
   { unUserinfo :: UrlEncoded
   } deriving (Show, Eq)
@@ -229,7 +232,10 @@ instance Eq Host where
            toLazyByteString (unHost y)
 
 buildHost :: Host -> T.Text
-buildHost = decodeUtf8With ignore . LBS.toStrict . toLazyByteString . unHost
+buildHost = decodeUtf8With ignore . buildHostBS
+
+buildHostBS :: Host -> SBS.ByteString
+buildHostBS = LBS.toStrict . toLazyByteString . unHost
 
 parseHost :: T.Text -> Either T.Text Host
 parseHost = parse' hostP "Failed to parse host."
@@ -271,6 +277,9 @@ newtype UrlPath = UrlPath
 
 buildUrlPath :: UrlPath -> T.Text
 buildUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
+
+buildUrlPathBS :: UrlPath -> SBS.ByteString
+buildUrlPathBS = LBS.toStrict . toLazyByteString . urlPathBuilderBS
 
 urlPathBuilderBS :: UrlPath -> Builder
 urlPathBuilderBS = mconcat . L.intersperse (char7 '/') .

@@ -59,7 +59,11 @@ instance ToJSON Service
 instance DH.Interpret Service
 
 -- | Version of HTTP.
-data HttpVersion = HttpVersion Natural Natural deriving (Eq, Ord)
+--   You don't think numbers of version take negative value, do you?
+data HttpVersion = HttpVersion
+  { majorVersion :: Natural
+  , minorVersion :: Natural
+  } deriving (Eq, Ord)
 
 instance Show HttpVersion where
   show (HttpVersion major minor) = show major ++ "." ++ show minor
@@ -69,13 +73,11 @@ instance ToJSON HttpVersion where
 
 instance FromJSON HttpVersion where
   parseJSON =
-    let
-    in
       withText "HttpVersion" $
       \t ->
         case feed (parse httpVersionP t) "" of
           Done "" v -> pure v
-          _         -> AP.empty
+          _         -> pure (HttpVersion 1 1)
 
 instance DH.Interpret HttpVersion where
   autoWith _ = DH.Type {..}

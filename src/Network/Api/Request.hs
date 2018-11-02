@@ -32,25 +32,26 @@ import           Network.Api.Service
 import           Network.Api.Url
 
 import           Control.Applicative
-import           Control.Exception.Safe  as E
-import           Data.Attoparsec.Text    as A
-import qualified Data.ByteString         as SBS
-import qualified Data.ByteString.Lazy    as LBS
-import           Data.CaseInsensitive    (CI, mk, original)
+import           Control.Exception.Safe     as E
+import           Data.Attoparsec.Text       as A
+import qualified Data.ByteString            as SBS
+import qualified Data.ByteString.Lazy       as LBS
+import           Data.CaseInsensitive       (CI, mk, original)
 import           Data.Either.Combinators
 import           Data.Hashable
-import qualified Data.HashMap.Strict     as HM
-import           Data.List               as L
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  as L
 import           Data.Maybe
-import           Data.Text               as T
+import           Data.Text                  as T
 import           Data.Text.Encoding
 import           Data.Time.Clock
-import           Data.Typeable           (Typeable)
+import           Data.Typeable              (Typeable)
 import           Data.Word
 import           GHC.Generics
-import qualified Network.HTTP.Client     as C
-import           Network.HTTP.Types      (Status)
-import           Network.HTTP.Types.URI  hiding (Query)
+import qualified Network.HTTP.Client        as C
+import           Network.HTTP.Types         (Status)
+import           Network.HTTP.Types.URI     hiding (Query)
+import qualified Network.HTTP.Types.Version as V
 
 
 -- | Call WebAPI with getting or updating token automatically.
@@ -99,10 +100,31 @@ attachToken tok req ser = undefined
 buildHttpRequest :: Request -> Service -> Either Text C.Request
 buildHttpRequest req service = do
   let url = fromMaybe (baseUrl service) (reqAltUrl req)
+  let version = V.HttpVersion
+                (fromIntegral . majorVersion $ httpVersion service)
+                (fromIntegral . minorVersion $ httpVersion service)
+  scheme <- if scheme url == Http && version < V.HttpVersion 2 0
+            then Left "HTTP/2.0 requires HTTPS"
+            else Right $ scheme url
+  let reqPort = case (port $ authority url, scheme) of
+        (Just p, _)      -> (fromIntegral . unPort) p
+        (Nothing, Http)  -> 80
+        (Nothing, Https) -> 443
   apiMethod <- lookupMethod req service
-  let requestMethod = httpMethod apiMethod
-  path <- inject (apiEndpoint apiMethod) (reqParams req)
-  return undefined
+  path <- buildUrlPathBS <$> inject (apiEndpoint apiMethod) (reqParams req)
+  return C.defaultRequest
+    { C.host = (buildHostBS . host . authority) url
+    , C.port = reqPort
+    , C.secure = scheme == Https
+    , C.requestHeaders    = []
+    , C.path                 = path
+    , C.queryString          = ""
+    , C.method               = "GET"
+    , C.requestBody              = C.RequestBodyBS $ reqBody req
+    , C.requestVersion       = version
+    }
+
+
 -- | Exceptions
 data ClientException
   = MethodNotDefined
