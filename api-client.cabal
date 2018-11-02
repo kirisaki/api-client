@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3e0d2c7acacdc55792a8a592234d7607f0fd14282ff3059fb3671bb4f95d1746
+-- hash: 59967a5585f20a9c33afdb61a62df3a85cd6aa69b7f758061a73bd00c523a3a4
 
 name:           api-client
 version:        0.0.1
@@ -49,6 +49,7 @@ library
     , hashable
     , http-client
     , http-types
+    , insert-ordered-containers
     , safe-exceptions
     , text
     , time
@@ -84,6 +85,7 @@ test-suite api-client-test
     , hspec
     , http-client
     , http-types
+    , insert-ordered-containers
     , quickcheck-instances
     , safe-exceptions
     , servant

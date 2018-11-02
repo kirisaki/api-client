@@ -56,6 +56,7 @@ data Service = Service
 
 instance FromJSON Service
 instance ToJSON Service
+instance DH.Interpret Service
 
 -- | Version of HTTP.
 data HttpVersion = HttpVersion Natural Natural deriving (Eq, Ord)
@@ -69,13 +70,26 @@ instance ToJSON HttpVersion where
 instance FromJSON HttpVersion where
   parseJSON =
     let
-      p = HttpVersion <$> decimal <* char '.' <*> decimal
     in
       withText "HttpVersion" $
       \t ->
-        case feed (parse p t) "" of
+        case feed (parse httpVersionP t) "" of
           Done "" v -> pure v
           _         -> AP.empty
+
+instance DH.Interpret HttpVersion where
+  autoWith _ = DH.Type {..}
+    where
+      extract (DHC.TextLit (DHC.Chunks [] t)) =
+        case feed (parse httpVersionP t) "" of
+          Done "" v -> Just v
+          _         -> Nothing
+      extract  _                      = AP.empty
+
+      expected = DHC.Text
+
+httpVersionP :: Parser HttpVersion
+httpVersionP = HttpVersion <$> decimal <* char '.' <*> decimal
 
 -- | API definition
 data Method = Method
@@ -85,6 +99,7 @@ data Method = Method
 
 instance FromJSON Method
 instance ToJSON Method
+instance DH.Interpret Method
 
 -- | HTTP method
 data HttpMethod
@@ -101,6 +116,7 @@ data HttpMethod
   deriving (Show, Ord, Eq, Read, Generic)
 instance FromJSON HttpMethod
 instance ToJSON HttpMethod
+instance DH.Interpret HttpMethod
 
 -- | Inject parameters to a path represented with colon or braces.
 inject :: PathParams -> [(T.Text, T.Text)] -> Either T.Text UrlPath
