@@ -65,7 +65,6 @@ module Network.Api.Url
   , urlEncodeBS
   , urlDecode
   , urlDecodeBS
-    -- * Unwrapper for build request
 
   ) where
 

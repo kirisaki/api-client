@@ -12,6 +12,7 @@ module Network.Api
     -- * Request
     call
   , Request(..)
+  , req
   , buildHttpRequest
   , lookupMethod
 
@@ -19,8 +20,6 @@ module Network.Api
   , Service(..)
   , Method(..)
   , HttpMethod(..)
-
-
 
     -- * Header
   , Header
@@ -34,6 +33,57 @@ module Network.Api
   , FieldValue
   , fieldValue
   , unFieldValue
+
+    -- * Url
+  , Url (..)
+  , parseUrl
+  , buildUrl
+  , buildUrlBS
+    -- ** Scheme
+  , Scheme(..)
+  , fromScheme
+  , toScheme
+    -- ** Authority
+  , Authority (..)
+  , parseAuthority
+  , buildAuthority
+    -- *** Userinfo
+  , Userinfo
+  , fromUserinfo
+  , toUserinfo
+    -- *** Host
+  , Host
+  , buildHost
+  , buildHostBS
+  , parseHost
+    -- *** Port
+  , Port
+  , unPort
+  , fromPort
+  , toPort
+    -- ** Path
+  , UrlPath
+  , buildUrlPath
+  , buildUrlPathBS
+  , parseUrlPath
+  , toUrlPath
+  , fromUrlPath
+  , (</>)
+    -- ** URL query parameter
+  , Query
+  , emptyQuery
+  , buildQuery
+  , buildQueryBS
+  , parseQuery
+  , fromQuery
+  , toQuery
+  , toQuery'
+    -- ** URL encoded string
+  , UrlEncoded
+  , urlEncode
+  , urlEncodeBS
+  , urlDecode
+  , urlDecodeBS
   ) where
 
 import           Network.Api.Header

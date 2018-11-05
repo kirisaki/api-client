@@ -15,6 +15,7 @@ module Network.Api.Request
   (
     call
   , Request(..)
+  , req
   , Response(..)
   , Token(..)
   , ClientException(..)
@@ -77,6 +78,20 @@ data Request = Request
   , reqToken          :: Maybe Token -- ^ Token to call API.
   , reqAltUrl         :: Maybe Url -- ^ Alternative base URL.
   , reqAltHttpVersion :: Maybe HttpVersion -- ^ Alternative HTTP version.
+  }
+
+-- | Simple 'Request'.
+req :: Request
+req = Request
+  { reqMethod = GET
+  , reqPath = PathParams []
+  , reqParams = []
+  , reqQuery = emptyQuery
+  , reqHeader = emptyHeader
+  , reqBody = ""
+  , reqToken = Nothing
+  , reqAltUrl = Nothing
+  , reqAltHttpVersion = Nothing
   }
 
 -- | Response to calling API
