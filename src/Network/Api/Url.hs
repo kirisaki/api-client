@@ -52,7 +52,9 @@ module Network.Api.Url
   , (</>)
     -- * URL query parameter
   , Query
+  , emptyQuery
   , buildQuery
+  , buildQueryBS
   , parseQuery
   , fromQuery
   , toQuery
@@ -315,6 +317,9 @@ newtype Query = Query
   { unQuery :: [(UrlEncoded, Maybe UrlEncoded)]
   } deriving (Show, Eq)
 
+instance Semigroup Query where
+  x <> y = Query $ unQuery x <> unQuery y
+
 instance ToJSON Query where
   toJSON = Array . V.fromList . L.map toJSON . unQuery
 
@@ -325,7 +330,11 @@ instance DH.Interpret Query where
   autoWith _ = toQuery' <$>
     DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
 
--- | 'Build' of query string.
+-- | Empty Query.
+emptyQuery :: Query
+emptyQuery = Query []
+
+-- | Build query string as 'Text'.
 buildQuery :: Query -> T.Text
 buildQuery = T.intercalate "&" . L.map (
   \case
@@ -334,6 +343,10 @@ buildQuery = T.intercalate "&" . L.map (
     (k, Nothing) ->
       urlDecode k
   ) . unQuery
+
+-- | Build query string as 'ByteString'.
+buildQueryBS :: Query -> SBS.ByteString
+buildQueryBS = LBS.toStrict . toLazyByteString . queryBuilderBS
 
 queryBuilderBS :: Query -> Builder
 queryBuilderBS =

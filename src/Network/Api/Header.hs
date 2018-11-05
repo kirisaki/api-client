@@ -16,6 +16,7 @@ module Network.Api.Header
   (
     -- * Field of HTTP header
     Header
+  , emptyHeader
   , toHeader
   , toHeaderUtf8
   , toHeaderWith
@@ -63,6 +64,10 @@ type Header = HM.HashMap FieldName FieldValue
 instance DH.Interpret Header where
   autoWith _ = HM.fromList <$>
                DH.list (DH.pair fieldNameDH fieldValueDH)
+
+-- | Empty Header.
+emptyHeader :: Header
+emptyHeader = HM.empty
 
 -- | Construct header fields with the supplied mappings.
 --   It returns `Left` value when tries to build a field with the first pair which includes invalid key or name , or both

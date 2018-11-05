@@ -16,17 +16,18 @@ import           Control.Concurrent
 import           Control.Exception.Safe
 import           Control.Monad.IO.Class
 import           Data.Aeson
-import           Data.CaseInsensitive     (mk)
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.List                as L
+import           Data.CaseInsensitive       (mk)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.List                  as L
 import           Data.Proxy
-import qualified Data.Text                as T
-import qualified Network.HTTP.Client      as C
-import qualified Network.HTTP.Types       as HT
-import           Network.Wai.Handler.Warp (run)
-import           Servant                  hiding (GET, HttpVersion (..), POST,
-                                           toHeader)
-import           Servant.Server           (serve)
+import qualified Data.Text                  as T
+import qualified Network.HTTP.Client        as C
+import qualified Network.HTTP.Types         as HT
+import qualified Network.HTTP.Types.Version as V
+import           Network.Wai.Handler.Warp   (run)
+import           Servant                    hiding (GET, HttpVersion (..), POST,
+                                             toHeader)
+import           Servant.Server             (serve)
 
 type Api =
   "api" :>
@@ -51,34 +52,6 @@ mockServerPort = 9432
 mockServer :: IO ()
 mockServer = run mockServerPort (serve (Proxy @ Api) server)
 
-sampleService :: Service
-sampleService = Service
-                { baseUrl = right $ parseUrl "https://example.net/api"
-                , methods =
-                  [ Method GET  (PathParams [Raw "user", Param "id"])
-                  , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
-                  , Method POST (PathParams [Raw "token"])
-                  ]
-                , httpVersion = HttpVersion 2 0
-                , defaultHeader =
-                    right $ toHeader [("User-Agent", "Netscape Navigator")]
-                , tokenHeaderName = Just . right $ fieldName "Authorization"
-                , tokenHeaderPrefix = Just "Bearer"
-                , tokenQueryName = Nothing
-                }
-
-defReq :: Request
-defReq = Request
-         { reqMethod = GET
-         , reqPath = PathParams []
-         , reqParams = []
-         , reqQuery = Nothing
-         , reqHeader = HM.empty
-         , reqBody = ""
-         , reqToken = Nothing
-         , reqAltUrl = Nothing
-         }
-
 instance Eq C.Request where
   x == y = and
            [ eq C.host
@@ -99,8 +72,8 @@ instance Eq C.Request where
 spec :: Spec
 spec = do
   describe "call" specCall
-  describe "attachToken" specAttachToken
   describe "lookupMethod" specLookupMethod
+  describe "buildHttpRequest" specBuildHttpRequest
 
 
 withMock :: ((C.Manager, ThreadId) -> IO ()) -> IO ()
@@ -114,6 +87,31 @@ withMock = bracket (
 
 specCall :: Spec
 specCall = around withMock $ do
+  let defReq = Request
+        { reqMethod = GET
+        , reqPath = PathParams []
+        , reqParams = []
+        , reqQuery = emptyQuery
+        , reqHeader = emptyHeader
+        , reqBody = ""
+        , reqToken = Nothing
+        , reqAltUrl = Nothing
+        , reqAltHttpVersion = Nothing
+        }
+  let sampleService = Service
+        { baseUrl = right $ parseUrl "https://example.net/api"
+        , methods =
+            [ Method GET  (PathParams [Raw "user", Param "id"])
+            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Method POST (PathParams [Raw "token"])
+            ]
+        , httpVersion = HttpVersion 2 0
+        , defaultHeader =
+            right $ toHeader [("User-Agent", "Netscape Navigator")]
+        , tokenHeaderName = Just . right $ fieldName "Authorization"
+        , tokenHeaderPrefix = Just "Bearer"
+        , tokenQueryName = Nothing
+        }
   let service = sampleService
         { baseUrl = right . parseUrl $ "http://localhost:" <> (T.pack . show) mockServerPort
         }
@@ -128,19 +126,117 @@ specCall = around withMock $ do
       `shouldBe`
       decode "{\"id\":\"1234\",\"name\":\"nyaan\"}"
 
-specAttachToken :: Spec
-specAttachToken = do
-  it "Request has no token and service doesn't requires it."
-    pending
-  it "Request has no token, but service requiires it."
-    pending
-  it "Request has token and service requires it."
-    pending
-  it "Request has token, but service doesn't requires it."
-    pending
+specBuildHttpRequest :: Spec
+specBuildHttpRequest = do
+  let defReq = Request
+        { reqMethod = GET
+        , reqPath = PathParams []
+        , reqParams = []
+        , reqQuery = emptyQuery
+        , reqHeader = emptyHeader
+        , reqBody = ""
+        , reqToken = Nothing
+        , reqAltUrl = Nothing
+        , reqAltHttpVersion = Nothing
+        }
+  let defHttpReq = C.defaultRequest
+        { C.host = "example.net"
+        , C.port = 443
+        , C.secure = True
+        , C.requestHeaders  = [(mk "User-Agent", "Netscape Navigator")]
+        , C.path            = ""
+        , C.queryString     = ""
+        , C.method          = "GET"
+        , C.requestBody     = C.RequestBodyBS ""
+        , C.requestVersion  = V.HttpVersion 2 0
+        }
+  let sampleService = Service
+        { baseUrl = right $ parseUrl "https://example.net/api"
+        , methods =
+            [ Method GET  (PathParams [Raw "user", Param "id"])
+            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Method POST (PathParams [Raw "token"])
+            ]
+        , httpVersion = HttpVersion 2 0
+        , defaultHeader =
+            right $ toHeader [("User-Agent", "Netscape Navigator")]
+        , tokenHeaderName = Just . right $ fieldName "Authorization"
+        , tokenHeaderPrefix = Just "Bearer"
+        , tokenQueryName = Nothing
+        }
+
+  it "A simple case" $
+    buildHttpRequest defReq { reqPath = PathParams [Raw "token"], reqMethod = POST } sampleService
+    `shouldBe`
+    Right defHttpReq { C.path = "api/token", C.method = "POST" }
+
+  it "With arg and token" $
+    buildHttpRequest defReq { reqPath = PathParams [Raw "user", Param "id"]
+                            , reqParams = [("id", "1234")]
+                            , reqToken = Just $ Token "nyaan" Nothing } sampleService
+    `shouldBe`
+    Right defHttpReq { C.path = "api/user/1234"
+               , C.requestHeaders  = [ (mk "User-Agent", "Netscape Navigator")
+                                     , (mk "Authorization", "Bearer nyaan")
+                                     ]
+               }
+
+  it "When a service requires the token at query." $
+    buildHttpRequest defReq { reqPath = PathParams [Raw "user", Param "id", Raw "comment", Param "article"]
+                            , reqParams = [("id", "1234"), ("article", "5")]
+                            , reqToken = Just $ Token "nyaan" Nothing
+                            , reqMethod = POST
+                            }
+    sampleService { tokenHeaderName = Nothing
+                  , tokenHeaderPrefix = Nothing
+                  , tokenQueryName = Just "token"
+                  }
+    `shouldBe`
+    Right defHttpReq { C.path = "api/user/1234/comment/5"
+               , C.queryString = "token=nyaan"
+               , C.method = "POST"
+               }
+
+  it "Alternative URL." $
+    buildHttpRequest defReq { reqPath = PathParams [Raw "token"]
+                            , reqMethod = POST
+                            , reqAltUrl = (Just . right . parseUrl) "http://localhost:8080/mock/api"
+                            , reqAltHttpVersion = Just $ HttpVersion 1 1} sampleService
+    `shouldBe`
+    Right defHttpReq { C.host = "localhost"
+               , C.port = 8080
+               , C.secure = False
+               , C.path = "mock/api/token"
+               , C.method = "POST"
+               , C.requestVersion = V.HttpVersion 1 1}
 
 specLookupMethod :: Spec
 specLookupMethod = do
+  let defReq = Request
+        { reqMethod = GET
+        , reqPath = PathParams []
+        , reqParams = []
+        , reqQuery = emptyQuery
+        , reqHeader = emptyHeader
+        , reqBody = ""
+        , reqToken = Nothing
+        , reqAltUrl = Nothing
+        , reqAltHttpVersion = Nothing
+        }
+  let sampleService = Service
+        { baseUrl = right $ parseUrl "https://example.net/api"
+        , methods =
+            [ Method GET  (PathParams [Raw "user", Param "id"])
+            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Method POST (PathParams [Raw "token"])
+            ]
+        , httpVersion = HttpVersion 2 0
+        , defaultHeader =
+            right $ toHeader [("User-Agent", "Netscape Navigator")]
+        , tokenHeaderName = Just . right $ fieldName "Authorization"
+        , tokenHeaderPrefix = Just "Bearer"
+        , tokenQueryName = Nothing
+        }
   let lookupMethod' m p = lookupMethod (defReq { reqMethod = m, reqPath = PathParams p }) sampleService
   let method m p = Right (Method m (PathParams p))
   it "Just a URL." $

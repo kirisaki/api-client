@@ -14,7 +14,6 @@
 module Network.Api.Request
   (
     call
-  , attachToken
   , Request(..)
   , Response(..)
   , Token(..)
@@ -36,7 +35,7 @@ import           Control.Exception.Safe     as E
 import           Data.Attoparsec.Text       as A
 import qualified Data.ByteString            as SBS
 import qualified Data.ByteString.Lazy       as LBS
-import           Data.CaseInsensitive       (CI, mk, original)
+import qualified Data.CaseInsensitive       as CI
 import           Data.Either.Combinators
 import           Data.Hashable
 import qualified Data.HashMap.Strict        as HM
@@ -54,8 +53,7 @@ import           Network.HTTP.Types.URI     hiding (Query)
 import qualified Network.HTTP.Types.Version as V
 
 
--- | Call WebAPI with getting or updating token automatically.
---   It's also possible to give a token explicitly.
+-- | Call WebAPI.
 call :: C.Manager -> Request -> Service -> IO Response
 call man req ser = do
   hreq <- undefined
@@ -64,23 +62,19 @@ call man req ser = do
     { resStatus = C.responseStatus res
     , resHeader = toHeader $ C.responseHeaders res
     , resBody = C.responseBody res
-    , resToken = Nothing
     }
-
--- | If you need to define method to get or update token.
-callWith :: C.Manager -> Request -> Service -> IO Response
-callWith man req ser = undefined
 
 -- | Request to call API.
 data Request = Request
-  { reqMethod :: HttpMethod -- ^ HTTP request method.
-  , reqPath   :: PathParams -- ^ Path of API endpoint.
-  , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
-  , reqQuery  :: Query -- ^ Query parameters.
-  , reqHeader :: Header -- ^ Header fields.
-  , reqBody   :: SBS.ByteString -- ^ Request body.
-  , reqToken  :: Maybe Token -- ^ Token to call API.
-  , reqAltUrl :: Maybe Url -- ^ Alternative base URL.
+  { reqMethod         :: HttpMethod -- ^ HTTP request method.
+  , reqPath           :: PathParams -- ^ Path of API endpoint.
+  , reqParams         :: [(Text, Text)] -- ^ Parameters injected to the path.
+  , reqQuery          :: Query -- ^ Query parameters.
+  , reqHeader         :: Header -- ^ Header fields.
+  , reqBody           :: SBS.ByteString -- ^ Request body.
+  , reqToken          :: Maybe Token -- ^ Token to call API.
+  , reqAltUrl         :: Maybe Url -- ^ Alternative base URL.
+  , reqAltHttpVersion :: Maybe HttpVersion -- ^ Alternative HTTP version.
   }
 
 -- | Response to calling API
@@ -88,40 +82,61 @@ data Response = Response
   { resStatus :: Status
   , resHeader :: Either Text Header
   , resBody   :: LBS.ByteString
-  , resToken  :: Maybe Token
-  } deriving (Eq, Show)
-
--- | Attach a token to a request.
---   This priors a token at the request.
-attachToken :: MonadThrow m => Request -> Service -> Token -> m Request
-attachToken tok req ser = undefined
+   } deriving (Eq, Show)
 
 -- | Build a Network.HTTP.Client.Request from Request.
 buildHttpRequest :: Request -> Service -> Either Text C.Request
 buildHttpRequest req service = do
-  let url = fromMaybe (baseUrl service) (reqAltUrl req)
-  let version = V.HttpVersion
-                (fromIntegral . majorVersion $ httpVersion service)
-                (fromIntegral . minorVersion $ httpVersion service)
-  scheme <- if scheme url == Http && version < V.HttpVersion 2 0
+  let url' = fromMaybe (baseUrl service) (reqAltUrl req)
+  let version' =
+        let ver s = V.HttpVersion
+                    (fromIntegral $ majorVersion s)
+                    (fromIntegral $ minorVersion s)
+        in
+          maybe (ver $ httpVersion service) ver (reqAltHttpVersion req)
+  scheme' <- if scheme url' == Http && version' >= V.HttpVersion 2 0
             then Left "HTTP/2.0 requires HTTPS"
-            else Right $ scheme url
-  let reqPort = case (port $ authority url, scheme) of
+            else Right $ scheme url'
+  let port' = case (port $ authority url', scheme') of
         (Just p, _)      -> (fromIntegral . unPort) p
         (Nothing, Http)  -> 80
         (Nothing, Https) -> 443
-  apiMethod <- lookupMethod req service
-  path <- buildUrlPathBS  . (urlPath url </>) <$> inject (apiEndpoint apiMethod) (reqParams req)
+  header' <-
+    let
+      mergedHeader = HM.union (reqHeader req) (defaultHeader service)
+      token = case (reqToken req, tokenHeaderPrefix service) of
+        (Just t, Nothing) -> Just $ tokenText t
+        (Just t, Just p)  -> Just (p <> " " <> tokenText t)
+        _                 -> Nothing
+    in
+      fromHeader <$> case (tokenHeaderName service, token) of
+        (Just name, Just t) ->
+          case fieldValue . encodeUtf8 $ t of
+            Right t -> Right $ HM.insert name t mergedHeader
+            Left l -> Left "Invalid token has invalid string as a header value."
+        (_, _) ->
+          Right mergedHeader
+  let query' =
+        let
+          mergedQuery = reqQuery req <> query url'
+        in
+          buildQueryBS $ case (tokenQueryName service, reqToken req) of
+            (Just k, Just v) ->
+              mergedQuery <> toQuery [(k, tokenText v)]
+            _ ->
+              mergedQuery
+  apiMethod' <- lookupMethod req service
+  path' <- buildUrlPathBS  . (urlPath url' </>) <$> inject (apiEndpoint apiMethod') (reqParams req)
   return C.defaultRequest
-    { C.host = (buildHostBS . host . authority) url
-    , C.port = reqPort
-    , C.secure = scheme == Https
-    , C.requestHeaders    = []
-    , C.path                 = path
-    , C.queryString          = ""
-    , C.method               = encodeUtf8 . T.pack . show $ httpMethod apiMethod
-    , C.requestBody          = C.RequestBodyBS $ reqBody req
-    , C.requestVersion       = version
+    { C.host = (buildHostBS . host . authority) url'
+    , C.port = port'
+    , C.secure = scheme' == Https
+    , C.requestHeaders  = header'
+    , C.path            = path'
+    , C.queryString     = query'
+    , C.method          = encodeUtf8 . T.pack . show $ httpMethod apiMethod'
+    , C.requestBody     = C.RequestBodyBS $ reqBody req
+    , C.requestVersion  = version'
     }
 
 
