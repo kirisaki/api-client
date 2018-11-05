@@ -76,7 +76,7 @@ data Request = Request
   { reqMethod :: HttpMethod -- ^ HTTP request method.
   , reqPath   :: PathParams -- ^ Path of API endpoint.
   , reqParams :: [(Text, Text)] -- ^ Parameters injected to the path.
-  , reqQuery  :: Maybe Query -- ^ Query parameters.
+  , reqQuery  :: Query -- ^ Query parameters.
   , reqHeader :: Header -- ^ Header fields.
   , reqBody   :: SBS.ByteString -- ^ Request body.
   , reqToken  :: Maybe Token -- ^ Token to call API.
@@ -111,7 +111,7 @@ buildHttpRequest req service = do
         (Nothing, Http)  -> 80
         (Nothing, Https) -> 443
   apiMethod <- lookupMethod req service
-  path <- buildUrlPathBS <$> inject (apiEndpoint apiMethod) (reqParams req)
+  path <- buildUrlPathBS  . (urlPath url </>) <$> inject (apiEndpoint apiMethod) (reqParams req)
   return C.defaultRequest
     { C.host = (buildHostBS . host . authority) url
     , C.port = reqPort
@@ -119,8 +119,8 @@ buildHttpRequest req service = do
     , C.requestHeaders    = []
     , C.path                 = path
     , C.queryString          = ""
-    , C.method               = "GET"
-    , C.requestBody              = C.RequestBodyBS $ reqBody req
+    , C.method               = encodeUtf8 . T.pack . show $ httpMethod apiMethod
+    , C.requestBody          = C.RequestBodyBS $ reqBody req
     , C.requestVersion       = version
     }
 

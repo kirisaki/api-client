@@ -49,6 +49,7 @@ module Network.Api.Url
   , parseUrlPath
   , toUrlPath
   , fromUrlPath
+  , (</>)
     -- * URL query parameter
   , Query
   , buildQuery
@@ -275,9 +276,11 @@ newtype UrlPath = UrlPath
   { unUrlPath :: [UrlEncoded]
   } deriving (Show, Eq)
 
+-- | Build path string as 'Text'
 buildUrlPath :: UrlPath -> T.Text
 buildUrlPath = T.intercalate "/" . L.map urlDecode . unUrlPath
 
+-- | Build path string as 'ByteString'
 buildUrlPathBS :: UrlPath -> SBS.ByteString
 buildUrlPathBS = LBS.toStrict . toLazyByteString . urlPathBuilderBS
 
@@ -285,15 +288,19 @@ urlPathBuilderBS :: UrlPath -> Builder
 urlPathBuilderBS = mconcat . L.intersperse (char7 '/') .
   L.map unUrlEncoded . unUrlPath
 
+-- | Parse 'Text' into 'UrlPath'
 parseUrlPath :: T.Text -> Either Text UrlPath
 parseUrlPath =  parse' urlPathP "Failed parsing UrlPath."
 
+-- | Make 'UrlPath' from '[Text]'
 toUrlPath :: [T.Text] -> UrlPath
 toUrlPath = UrlPath . L.map urlEncode
 
+-- | 'UrlPath' to '[Text]'
 fromUrlPath :: UrlPath -> [T.Text]
 fromUrlPath = L.map urlDecode . unUrlPath
 
+-- | Join 'UrlPath'
 (</>) :: UrlPath -> UrlPath -> UrlPath
 x </> y = UrlPath $ unUrlPath x ++ unUrlPath y
 
