@@ -99,21 +99,18 @@ specCall = around withMock $ do
         , reqAltHttpVersion = Nothing
         }
   let sampleService = Service
-        { baseUrl = right $ parseUrl "https://example.net/api"
+        { baseUrl = right . parseUrl $ "http://localhost:" <> (T.pack . show) mockServerPort <> "/api"
         , methods =
             [ Method GET  (PathParams [Raw "user", Param "id"])
             , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
             , Method POST (PathParams [Raw "token"])
             ]
-        , httpVersion = HttpVersion 2 0
+        , httpVersion = HttpVersion 1 1
         , defaultHeader =
             right $ toHeader [("User-Agent", "Netscape Navigator")]
         , tokenHeaderName = Just . right $ fieldName "Authorization"
         , tokenHeaderPrefix = Just "Bearer"
         , tokenQueryName = Nothing
-        }
-  let service = sampleService
-        { baseUrl = right . parseUrl $ "http://localhost:" <> (T.pack . show) mockServerPort
         }
   it "normal case" $ \(man, _) -> do
     let req = defReq
@@ -121,7 +118,7 @@ specCall = around withMock $ do
           , reqPath = PathParams [Raw "user", Param "id"]
           , reqParams = [("id", "1234")]
           }
-    res <- call man req service
+    res <- call man req sampleService
     (decode $ resBody res :: Maybe Value)
       `shouldBe`
       decode "{\"id\":\"1234\",\"name\":\"nyaan\"}"

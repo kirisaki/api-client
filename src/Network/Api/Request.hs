@@ -56,7 +56,9 @@ import qualified Network.HTTP.Types.Version as V
 -- | Call WebAPI.
 call :: C.Manager -> Request -> Service -> IO Response
 call man req ser = do
-  hreq <- undefined
+  hreq <- case buildHttpRequest req ser of
+            Right r -> return r
+            Left l  -> fail $ T.unpack l
   res <- C.httpLbs hreq man
   return $ Response
     { resStatus = C.responseStatus res
