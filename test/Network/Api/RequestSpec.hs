@@ -72,7 +72,7 @@ instance Eq C.Request where
 spec :: Spec
 spec = do
   describe "call" specCall
-  describe "lookupMethod" specLookupMethod
+  describe "lookupEndpoint" specLookupEndpoint
   describe "buildHttpRequest" specBuildHttpRequest
 
 
@@ -100,10 +100,10 @@ specCall = around withMock $ do
         }
   let sampleService = Service
         { baseUrl = right . parseUrl $ "http://localhost:" <> (T.pack . show) mockServerPort <> "/api"
-        , methods =
-            [ Method GET  (PathParams [Raw "user", Param "id"])
-            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
-            , Method POST (PathParams [Raw "token"])
+        , endpoints =
+            [ Endpoint GET  (PathParams [Raw "user", Param "id"])
+            , Endpoint POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Endpoint POST (PathParams [Raw "token"])
             ]
         , httpVersion = HttpVersion 1 1
         , defaultHeader =
@@ -149,10 +149,10 @@ specBuildHttpRequest = do
         }
   let sampleService = Service
         { baseUrl = right $ parseUrl "https://example.net/api"
-        , methods =
-            [ Method GET  (PathParams [Raw "user", Param "id"])
-            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
-            , Method POST (PathParams [Raw "token"])
+        , endpoints =
+            [ Endpoint GET  (PathParams [Raw "user", Param "id"])
+            , Endpoint POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Endpoint POST (PathParams [Raw "token"])
             ]
         , httpVersion = HttpVersion 2 0
         , defaultHeader =
@@ -207,8 +207,8 @@ specBuildHttpRequest = do
                , C.method = "POST"
                , C.requestVersion = V.HttpVersion 1 1}
 
-specLookupMethod :: Spec
-specLookupMethod = do
+specLookupEndpoint :: Spec
+specLookupEndpoint = do
   let defReq = Request
         { reqMethod = GET
         , reqPath = PathParams []
@@ -222,10 +222,10 @@ specLookupMethod = do
         }
   let sampleService = Service
         { baseUrl = right $ parseUrl "https://example.net/api"
-        , methods =
-            [ Method GET  (PathParams [Raw "user", Param "id"])
-            , Method POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
-            , Method POST (PathParams [Raw "token"])
+        , endpoints =
+            [ Endpoint GET  (PathParams [Raw "user", Param "id"])
+            , Endpoint POST (PathParams [Raw "user", Param "id", Raw "comment", Param "article"])
+            , Endpoint POST (PathParams [Raw "token"])
             ]
         , httpVersion = HttpVersion 2 0
         , defaultHeader =
@@ -234,18 +234,18 @@ specLookupMethod = do
         , tokenHeaderPrefix = Just "Bearer"
         , tokenQueryName = Nothing
         }
-  let lookupMethod' m p = lookupMethod (defReq { reqMethod = m, reqPath = PathParams p }) sampleService
-  let method m p = Right (Method m (PathParams p))
+  let lookupEndpoint' m p = lookupEndpoint (defReq { reqMethod = m, reqPath = PathParams p }) sampleService
+  let method m p = Right (Endpoint m (PathParams p))
   it "Just a URL." $
-    lookupMethod' POST [Raw "token"] `shouldBe` method POST [Raw "token"]
+    lookupEndpoint' POST [Raw "token"] `shouldBe` method POST [Raw "token"]
   it "With a simple parameter." $
-    lookupMethod' GET [Raw "user", Param "id"] `shouldBe` method GET [Raw "user", Param "id"]
+    lookupEndpoint' GET [Raw "user", Param "id"] `shouldBe` method GET [Raw "user", Param "id"]
   it "Overwrite a parameter." $
-    lookupMethod' GET [Raw "user", Raw "123"] `shouldBe` method GET [Raw "user", Raw "123"]
+    lookupEndpoint' GET [Raw "user", Raw "123"] `shouldBe` method GET [Raw "user", Raw "123"]
   it "Wrong HTTP method." $
-    lookupMethod' POST [Raw "user", Param "id"] `shouldBe` Left "Method not found."
+    lookupEndpoint' POST [Raw "user", Param "id"] `shouldBe` Left "Endpoint not found."
   it "'user' should be Raw." $
-    lookupMethod' GET [Param "user", Param "id"] `shouldBe` Left "Method not found."
+    lookupEndpoint' GET [Param "user", Param "id"] `shouldBe` Left "Endpoint not found."
   it "Not found." $
-    lookupMethod' GET [Raw "nyaan"] `shouldBe` Left "Method not found."
+    lookupEndpoint' GET [Raw "nyaan"] `shouldBe` Left "Endpoint not found."
 

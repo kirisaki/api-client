@@ -14,12 +14,12 @@ module Network.Api
   , Request(..)
   , req
   , buildHttpRequest
-  , lookupMethod
+  , lookupEndpoint
 
     -- * Service
   , Service(..)
+  , Endpoint(..)
   , Method(..)
-  , HttpMethod(..)
 
     -- * Header
   , Header

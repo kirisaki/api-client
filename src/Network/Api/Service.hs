@@ -15,9 +15,9 @@ module Network.Api.Service
   (
     -- * Service
     Service(..)
-  , Method(..)
+  , Endpoint(..)
   , HttpVersion(..)
-  , HttpMethod(..)
+  , Method(..)
     -- * Path with parameters
   , inject
   , PathParams(..)
@@ -46,7 +46,7 @@ import           Numeric.Natural
 -- | API Definition
 data Service = Service
   { baseUrl           :: Url
-  , methods           :: [Method]
+  , endpoints         :: [Endpoint]
   , httpVersion       :: HttpVersion
   , defaultHeader     :: Header
   , tokenHeaderName   :: Maybe FieldName
@@ -93,18 +93,18 @@ instance DH.Interpret HttpVersion where
 httpVersionP :: Parser HttpVersion
 httpVersionP = HttpVersion <$> decimal <* char '.' <*> decimal
 
--- | API definition
-data Method = Method
-  { httpMethod  :: HttpMethod
-  , apiEndpoint :: PathParams
+-- | API Endpoint definition
+data Endpoint = Endpoint
+  { endpointMethod :: Method
+  , endpointPath   :: PathParams
   } deriving (Eq, Show, Generic)
 
-instance FromJSON Method
-instance ToJSON Method
-instance DH.Interpret Method
+instance FromJSON Endpoint
+instance ToJSON Endpoint
+instance DH.Interpret Endpoint
 
 -- | HTTP method
-data HttpMethod
+data Method
   = GET
   | POST
   | HEAD
@@ -116,9 +116,9 @@ data HttpMethod
   | PATCH
   | Custom T.Text
   deriving (Show, Ord, Eq, Read, Generic)
-instance FromJSON HttpMethod
-instance ToJSON HttpMethod
-instance DH.Interpret HttpMethod
+instance FromJSON Method
+instance ToJSON Method
+instance DH.Interpret Method
 
 -- | Inject parameters to a path represented with colon or braces.
 inject :: PathParams -> [(T.Text, T.Text)] -> Either T.Text UrlPath

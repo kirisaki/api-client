@@ -20,7 +20,7 @@ module Network.Api.Request
   , Token(..)
   , ClientException(..)
   , buildHttpRequest
-  , lookupMethod
+  , lookupEndpoint
 
   -- * Re-export
   , C.newManager
@@ -69,7 +69,7 @@ call man req ser = do
 
 -- | Request to call API.
 data Request = Request
-  { reqMethod         :: HttpMethod -- ^ HTTP request method.
+  { reqMethod         :: Method -- ^ HTTP request method.
   , reqPath           :: PathParams -- ^ Path of API endpoint.
   , reqParams         :: [(Text, Text)] -- ^ Parameters injected to the path.
   , reqQuery          :: Query -- ^ Query parameters.
@@ -142,8 +142,8 @@ buildHttpRequest req service = do
               mergedQuery <> toQuery [(k, tokenText v)]
             _ ->
               mergedQuery
-  apiMethod' <- lookupMethod req service
-  path' <- buildUrlPathBS  . (urlPath url' </>) <$> inject (apiEndpoint apiMethod') (reqParams req)
+  apiEndpoint' <- lookupEndpoint req service
+  path' <- buildUrlPathBS  . (urlPath url' </>) <$> inject (endpointPath apiEndpoint') (reqParams req)
   return C.defaultRequest
     { C.host = (buildHostBS . host . authority) url'
     , C.port = port'
@@ -151,7 +151,7 @@ buildHttpRequest req service = do
     , C.requestHeaders  = header'
     , C.path            = path'
     , C.queryString     = query'
-    , C.method          = encodeUtf8 . T.pack . show $ httpMethod apiMethod'
+    , C.method          = encodeUtf8 . T.pack . show $ endpointMethod apiEndpoint'
     , C.requestBody     = C.RequestBodyBS $ reqBody req
     , C.requestVersion  = version'
     }
@@ -159,7 +159,7 @@ buildHttpRequest req service = do
 
 -- | Exceptions
 data ClientException
-  = MethodNotDefined
+  = EndpointNotDefined
   | FailedToInjectUrlParams Text
   | FailedToAttachToken
   deriving(Show, Typeable)
@@ -172,8 +172,8 @@ data Token = Token
   } deriving (Eq, Show)
 
 -- | Look up a method which matchs an API definition.
-lookupMethod :: Request -> Service -> Either Text Method
-lookupMethod req service =
+lookupEndpoint :: Request -> Service -> Either Text Endpoint
+lookupEndpoint req service =
   let
     matchParams :: PathParams -> PathParams -> Bool
     matchParams (PathParams reqParams) (PathParams serviceParams) =
@@ -185,12 +185,13 @@ lookupMethod req service =
            (Param r, Raw _) -> False
            (Param r, Param s) -> r == s
        ) (L.zip reqParams serviceParams)
-    matchedMethod = L.find
-      (\method ->
-          reqMethod req == httpMethod method &&
-          reqPath req `matchParams` apiEndpoint method
-      ) (methods service)
+    matchedEndpoint = L.find
+      (\e ->
+          reqMethod req == endpointMethod e &&
+          reqPath req `matchParams` endpointPath e
+      ) (endpoints service)
   in
-    case matchedMethod of
-      Just m  -> Right m { apiEndpoint = reqPath req }
-      Nothing -> Left "Method not found."
+    case matchedEndpoint of
+      Just e  -> Right e { endpointPath = reqPath req }
+      Nothing -> Left "Endpoint not found."
+
