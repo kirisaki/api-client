@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 59967a5585f20a9c33afdb61a62df3a85cd6aa69b7f758061a73bd00c523a3a4
+-- hash: c07d96e3a9d275b992c18575732ff4df312c2d8f356ee2d8f31fc56a0b57611c
 
 name:           api-client
 version:        0.0.1
@@ -17,10 +19,9 @@ copyright:      2018 Akihito KIRISAKI
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
-    ChangeLog.md
     README.md
+    ChangeLog.md
 
 source-repository head
   type: git
