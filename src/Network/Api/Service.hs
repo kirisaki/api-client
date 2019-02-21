@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
@@ -82,10 +83,22 @@ httpVersionP = HttpVersion <$> decimal <* char '.' <*> decimal
 data Endpoint = Endpoint
   { endpointMethod :: Method
   , endpointPath   :: PathParams
-  } deriving (Eq, Show, Generic)
+  } deriving (Eq, Show)
 
-instance FromJSON Endpoint
-instance ToJSON Endpoint
+instance FromJSON Endpoint where
+  parseJSON = withText "endpoint" $ \t ->
+    case T.words t of
+      [method, url] ->
+        liftA2 Endpoint (parseJSON $ String  method) (parseJSON $ String url)
+      _ ->
+        empty
+instance ToJSON Endpoint where
+  toJSON (Endpoint method path) =
+    let
+      String m = toJSON method
+      String p = toJSON path
+    in
+      String (m <> " " <> p)
 
 -- | HTTP method
 data Method
@@ -99,9 +112,25 @@ data Method
   | OPTIONS
   | PATCH
   | Custom T.Text
-  deriving (Show, Ord, Eq, Read, Generic)
-instance FromJSON Method
-instance ToJSON Method
+  deriving (Show, Ord, Eq, Read)
+
+instance FromJSON Method where
+  parseJSON = withText "Method" $ \case
+    "GET" -> pure GET
+    "POST" -> pure POST
+    "HEAD" -> pure HEAD
+    "PUT" -> pure PUT
+    "DELETE" -> pure DELETE
+    "TRACE" -> pure TRACE
+    "CONNECT" -> pure CONNECT
+    "OPTIONS" -> pure OPTIONS
+    "PATCH" -> pure PATCH
+    t -> pure . Custom $ T.toUpper t
+
+instance ToJSON Method where
+  toJSON = \case
+    Custom t -> String $ T.toUpper t
+    m -> String . T.pack $ show m
 
 -- | Inject parameters to a path represented with colon or braces.
 inject :: PathParams -> [(T.Text, T.Text)] -> Either T.Text UrlPath
