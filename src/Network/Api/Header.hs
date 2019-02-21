@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
@@ -53,17 +52,12 @@ import           Data.Text                  as T
 import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import           Data.Word8
-import qualified Dhall                      as DH
-import qualified Dhall.Core                 as DHC
 
 -- | Collection of HTTP header fields.
 --   Duplicated header fields are allowed in <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>,
 --   but this makes implements complecated, so treat field as unique in this module.
 type Header = HM.HashMap FieldName FieldValue
 
-instance DH.Interpret Header where
-  autoWith _ = HM.fromList <$>
-               DH.list (DH.pair fieldNameDH fieldValueDH)
 
 -- | Empty Header.
 emptyHeader :: Header
@@ -134,8 +128,6 @@ instance FromJSONKey FieldName where
     where
       f = either (fail . T.unpack) return . fieldName . CI.mk . encodeUtf8
 
-instance DH.Interpret FieldName where
-  autoWith _ = fieldNameDH
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
 fieldName :: CI.CI SBS.ByteString -> Either Text FieldName
@@ -154,13 +146,6 @@ fieldName t =
       Fail {}   -> Left "included invalid a character(Fail)"
       Partial _ -> Left "lack input"
 
-fieldNameDH :: DH.Type FieldName
-fieldNameDH = DH.Type {..}
-  where
-    extract (DHC.TextLit (DHC.Chunks [] t)) =
-      (either (const Nothing) Just . fieldName . CI.mk . encodeUtf8) t
-    extract  _                      = AP.empty
-    expected = DHC.Text
 
 -- | A field value of a HTTP header.
 newtype FieldValue = FieldValue
@@ -175,9 +160,6 @@ instance FromJSON FieldValue where
     \t -> case fieldValue $ encodeUtf8 t of
       Right n -> return n
       Left e  -> fail $ T.unpack e
-
-instance DH.Interpret FieldValue where
-  autoWith _ = fieldValueDH
 
 -- | Make field name. Refer <https://tools.ietf.org/html/rfc7230#section-3.2 RFC7230>.
 fieldValue :: SBS.ByteString -> Either Text FieldValue
@@ -195,12 +177,3 @@ fieldValue t =
       Done _ _  -> Left "included invalid a character character"
       Fail {}   -> Left "included invalid a character character"
       Partial _ -> Left "lack input"
-
-fieldValueDH :: DH.Type FieldValue
-fieldValueDH = DH.Type {..}
-  where
-    extract (DHC.TextLit (DHC.Chunks [] t)) =
-      (either (const Nothing) Just . fieldValue . encodeUtf8) t
-    extract  _                      = AP.empty
-    expected = DHC.Text
-

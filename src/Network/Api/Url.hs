@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
@@ -89,8 +88,6 @@ import           Data.Text.Encoding
 import           Data.Text.Encoding.Error
 import qualified Data.Vector              as V
 import           Data.Word
-import qualified Dhall                    as DH
-import           Dhall.Core
 import qualified Network.HTTP.Types.URI   as U
 
 -- | Parse Url
@@ -148,15 +145,6 @@ instance FromJSON Url where
       case parseUrl t of
         Right u -> pure u
         Left l  -> fail $ T.unpack l
-
-instance DH.Interpret Url where
-  autoWith _ = DH.Type {..}
-    where
-      extract (TextLit (Chunks [] t)) =
-        (either (const Nothing) Just . parseUrl) t
-      extract  _                      = AP.empty
-
-      expected = Text
 
 -- | URL scheme.
 data Scheme
@@ -325,9 +313,6 @@ instance ToJSON Query where
 instance FromJSON Query where
   parseJSON = withArray "Query" (pure . toQuery' <=< traverse parseJSON . V.toList)
 
-instance DH.Interpret Query where
-  autoWith _ = toQuery' <$>
-    DH.list (DH.pair DH.strictText (DH.maybe DH.strictText))
 
 -- | Empty Query.
 emptyQuery :: Query
@@ -426,12 +411,6 @@ instance FromJSON UrlEncoded where
 instance FromJSONKey UrlEncoded where
   fromJSONKey = FromJSONKeyTextParser (pure . urlEncode)
 
-instance DH.Interpret UrlEncoded where
-  autoWith _ = DH.Type {..}
-    where
-      extract (TextLit (Chunks [] t)) = pure (urlEncode t)
-      extract  _                      = AP.empty
-      expected = Text
 
 -- | ByteString text to URI encoded bytestring.
 --   It converts ' '(0x20) to '+'

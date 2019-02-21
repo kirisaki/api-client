@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
 {-# OPTIONS_HADDOCK not-home    #-}
 ----------------------------------------------------------------------------
 -- |
@@ -38,8 +37,6 @@ import           Data.Either
 import           Data.List            as L
 import qualified Data.Text            as T
 import           Data.Word
-import qualified Dhall                as DH
-import qualified Dhall.Core           as DHC
 import           GHC.Generics
 import           Numeric.Natural
 
@@ -56,7 +53,6 @@ data Service = Service
 
 instance FromJSON Service
 instance ToJSON Service
-instance DH.Interpret Service
 
 -- | Version of HTTP.
 --   You don't think numbers of version take negative value, do you?
@@ -79,17 +75,6 @@ instance FromJSON HttpVersion where
           Done "" v -> pure v
           _         -> pure (HttpVersion 1 1)
 
-instance DH.Interpret HttpVersion where
-  autoWith _ = DH.Type {..}
-    where
-      extract (DHC.TextLit (DHC.Chunks [] t)) =
-        case feed (parse httpVersionP t) "" of
-          Done "" v -> Just v
-          _         -> Nothing
-      extract  _                      = AP.empty
-
-      expected = DHC.Text
-
 httpVersionP :: Parser HttpVersion
 httpVersionP = HttpVersion <$> decimal <* char '.' <*> decimal
 
@@ -101,7 +86,6 @@ data Endpoint = Endpoint
 
 instance FromJSON Endpoint
 instance ToJSON Endpoint
-instance DH.Interpret Endpoint
 
 -- | HTTP method
 data Method
@@ -118,7 +102,6 @@ data Method
   deriving (Show, Ord, Eq, Read, Generic)
 instance FromJSON Method
 instance ToJSON Method
-instance DH.Interpret Method
 
 -- | Inject parameters to a path represented with colon or braces.
 inject :: PathParams -> [(T.Text, T.Text)] -> Either T.Text UrlPath
@@ -151,15 +134,6 @@ instance FromJSON PathParams where
     \t -> case parsePathParams t of
       Right r -> return r
       Left l  -> fail $ T.unpack l
-
-instance DH.Interpret PathParams where
-  autoWith _ = DH.Type {..}
-    where
-      extract (DHC.TextLit (DHC.Chunks [] t)) =
-        (either (const Nothing) Just . parsePathParams) t
-      extract  _                      = AP.empty
-
-      expected = DHC.Text
 
 -- | Build path with colon parameter.
 buildPathParams :: PathParams -> T.Text
