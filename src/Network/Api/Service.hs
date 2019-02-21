@@ -57,24 +57,23 @@ instance ToJSON Service
 
 -- | Version of HTTP.
 --   You don't think numbers of version take negative value, do you?
-data HttpVersion = HttpVersion
-  { majorVersion :: Natural
-  , minorVersion :: Natural
-  } deriving (Eq, Ord)
-
-instance Show HttpVersion where
-  show (HttpVersion major minor) = show major ++ "." ++ show minor
+data HttpVersion = HttpVersion Natural Natural deriving (Eq, Ord, Show)
 
 instance ToJSON HttpVersion where
-  toJSON = String . T.pack . show
+  toJSON (HttpVersion major minor) =
+    if major > 1
+    then String . T.pack $ show major
+    else String . T.pack $ show major <> "." <> show minor
 
 instance FromJSON HttpVersion where
   parseJSON =
-      withText "HttpVersion" $
-      \t ->
-        case feed (parse httpVersionP t) "" of
-          Done "" v -> pure v
-          _         -> pure (HttpVersion 1 1)
+    withText "HttpVersion" $ \case
+    "0.9" -> pure $ HttpVersion 0 9
+    "1.0" -> pure $ HttpVersion 1 0
+    "1.1" -> pure $ HttpVersion 1 1
+    "2" -> pure $ HttpVersion 2 0
+    "3" -> pure $ HttpVersion 3 0
+    _         -> empty
 
 httpVersionP :: Parser HttpVersion
 httpVersionP = HttpVersion <$> decimal <* char '.' <*> decimal

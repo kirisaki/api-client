@@ -106,13 +106,12 @@ buildHttpRequest :: Request -> Service -> Either Text C.Request
 buildHttpRequest req service = do
   let url' = fromMaybe (baseUrl service) (reqAltUrl req)
   let version' =
-        let ver s = V.HttpVersion
-                    (fromIntegral $ majorVersion s)
-                    (fromIntegral $ minorVersion s)
+        let ver (HttpVersion major minor)
+              = V.HttpVersion (fromIntegral major) (fromIntegral minor)
         in
           maybe (ver $ httpVersion service) ver (reqAltHttpVersion req)
   scheme' <- if scheme url' == Http && version' >= V.HttpVersion 2 0
-            then Left "HTTP/2.0 requires HTTPS"
+            then Left "HTTP/2 requires HTTPS"
             else Right $ scheme url'
   let port' = case (port $ authority url', scheme') of
         (Just p, _)      -> (fromIntegral . unPort) p
